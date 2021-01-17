@@ -25,57 +25,85 @@
 #include <Bridge.h>
 #include <HttpClient.h>
 #include <Process.h>
+#include <TimeLib.h>
 
 #include "arduino_secrets.h"
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 
-Process date;                 // process used to get the date
-int hours, minutes, seconds;  // for the results
-int lastSecond = -1;          // need an impossible value for comparison
-
 void setup() {
 
   // Initialize serial and wait for port to open:
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
+  Bridge.begin();
+  digitalWrite(13, HIGH);
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
-  //  run an initial date process. Should return:
-  //  hh:mm:ss :
-  if (!date.running()) {
-    date.begin("date");
-    date.addParameter("+%T");
-    date.run();
-  }
-
   connectToWifi();
-//  getCurrentTime();
+  getCurrentTime();
 }
 
 void loop() {
 
- 
-  getCurrentTime();
-  
-
-
-}
-
-void getCurrentTime() {
+// Initialize the client library
   HttpClient client;
+
+  // Make a HTTP request:
   client.get("http://www.arduino.cc/asciilogo.txt");
 
+  // if there are incoming bytes available
+  // from the server, read them and print them:
   while (client.available()) {
     char c = client.read();
     Serial.print(c);
-    }
+  }
+  Serial.flush();
 
-    Serial.flush();
+  delay(5000);
 
-    delay(5000);
+}
+
+void checkCurrentTime() {
+
+  Serial.print("time result:");
+  Serial.println(hour());
+  Serial.println(minute());
+  Serial.println(second());
+  
+  }
+
+void getCurrentTime() {
+  Serial.println("Getting the current time");
+  
+  unsigned long epoch;
+  epoch = WiFi.getTime();
+  time_t epochTime = epoch;
+
+  setTime(epochTime);
+  adjustTime(3600 * -8);
+
+  Serial.print("time result:");
+  Serial.println(hour());
+  Serial.println(minute());
+  Serial.println(second());
+  
+
+//  HttpClient client;
+//  client.get("http://www.arduino.cc/asciilogo.txt");
+//
+//  while (client.available()) {
+//    char c = client.read();
+//    Serial.print(c);
+//    }
+//
+//    Serial.flush();
+//
+//    delay(5000);
   }
 
 // Connects to wifi
@@ -165,83 +193,3 @@ void printMacAddress(byte mac[]) {
   }
   Serial.println();
 }
- 
-
-//#include <Process.h>
-//
-//Process date;                 // process used to get the date
-//int hours, minutes, seconds;  // for the results
-//int lastSecond = -1;          // need an impossible value for comparison
-//
-//void setup() {
-//
-//  Bridge.begin();        // initialize Bridge
-//  Serial.begin(9600);    // initialize serial
-//  while (!Serial);              // wait for Serial Monitor to open
-//  Serial.println("Time Check");  // Title of sketch
-//
-//  // run an initial date process. Should return:
-//  // hh:mm:ss :
-//  if (!date.running()) {
-//    date.begin("date");
-//    date.addParameter("+%T");
-//    date.run();
-//
-//  }
-//}
-//
-//void loop() {
-//
-//  if (lastSecond != seconds) { // if a second has passed
-//    // print the time:
-//    if (hours <= 9) {
-//      Serial.print("0");  // adjust for 0-9
-//    }
-//
-//    Serial.print(hours);
-//    Serial.print(":");
-//    
-//    if (minutes <= 9) {
-//      Serial.print("0");  // adjust for 0-9
-//    }
-//
-//    Serial.print(minutes);
-//    Serial.print(":");
-//    
-//    if (seconds <= 9) {
-//      Serial.print("0");  // adjust for 0-9
-//    }
-//
-//    Serial.println(seconds);
-//
-//    // restart the date process:
-//    if (!date.running()) {
-//      date.begin("date");
-//      date.addParameter("+%T");
-//      date.run();
-//    }
-//  }
-//
-//  //if there's a result from the date process, parse it:
-//  while (date.available() > 0) {
-//
-//    // get the result of the date process (should be hh:mm:ss):
-//    String timeString = date.readString();
-//
-//    // find the colons:
-//    int firstColon = timeString.indexOf(":");
-//    int secondColon = timeString.lastIndexOf(":");
-//
-//    // get the substrings for hour, minute second:
-//    String hourString = timeString.substring(0, firstColon);
-//    String minString = timeString.substring(firstColon + 1, secondColon);
-//    String secString = timeString.substring(secondColon + 1);
-//
-//    // convert to ints,saving the previous second:
-//    hours = hourString.toInt();
-//    minutes = minString.toInt();
-//    lastSecond = seconds;          // save to do a time comparison
-//    seconds = secString.toInt();
-//
-//  }
-//}
