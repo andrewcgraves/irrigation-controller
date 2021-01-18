@@ -1,21 +1,11 @@
 
 /*
 
-  Time Check
+ Irrigation Controller
 
- Gets the time from Linux via Bridge then parses out hours,
-
- minutes and seconds using a YunShield/Yún.
-
- created  27 May 2013
-
- modified 21 June 2013
-
- By Tom Igoe
-
- This example code is in the public domain.
-
- http://www.arduino.cc/en/Tutorial/TimeCheck
+ Controlls our irrigation system using time and weather data. Can be used manually
+ 
+ By Andrew Graves
 
  */
 
@@ -28,17 +18,13 @@
 #include <TimeLib.h>
 
 #include "arduino_secrets.h"
+
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 
 void setup() {
 
-  // Initialize serial and wait for port to open:
-  pinMode(13, OUTPUT);
-  digitalWrite(13, LOW);
-  Bridge.begin();
-  digitalWrite(13, HIGH);
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
@@ -50,32 +36,21 @@ void setup() {
 
 void loop() {
 
-// Initialize the client library
-  HttpClient client;
-
-  // Make a HTTP request:
-  client.get("http://www.arduino.cc/asciilogo.txt");
-
-  // if there are incoming bytes available
-  // from the server, read them and print them:
-  while (client.available()) {
-    char c = client.read();
-    Serial.print(c);
-  }
-  Serial.flush();
-
-  delay(5000);
-
 }
 
-void checkCurrentTime() {
 
+// --------------------------------
+// TIME GATHERING
+// --------------------------------
+
+
+void checkCurrentTime() {
   Serial.print("time result:");
   Serial.println(hour());
   Serial.println(minute());
   Serial.println(second());
   
-  }
+ }
 
 void getCurrentTime() {
   Serial.println("Getting the current time");
@@ -92,21 +67,14 @@ void getCurrentTime() {
   Serial.println(minute());
   Serial.println(second());
   
+ }
 
-//  HttpClient client;
-//  client.get("http://www.arduino.cc/asciilogo.txt");
-//
-//  while (client.available()) {
-//    char c = client.read();
-//    Serial.print(c);
-//    }
-//
-//    Serial.flush();
-//
-//    delay(5000);
-  }
 
-// Connects to wifi
+// --------------------------------
+// WIFI CONNECTION
+// --------------------------------
+
+
 void connectToWifi() {
     // check for the WiFi module:
     if (WiFi.status() == WL_NO_MODULE) {
@@ -137,6 +105,12 @@ void connectToWifi() {
     printCurrentNet();
     printWiFiData();
   }
+
+
+// --------------------------------
+// PRINTING AND DEBUGGING FUNCTIONS
+// --------------------------------
+
 
 void printWiFiData() {
 
