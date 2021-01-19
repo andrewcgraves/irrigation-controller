@@ -16,26 +16,124 @@
 #include <HttpClient.h>
 #include <Process.h>
 #include <TimeLib.h>
+#include <ezButton.h>
+#include <Adafruit_NeoPixel.h>
 
 #include "arduino_secrets.h"
+#define PIN 4
+#define LED_COUNT 1
 
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
+int wateringStatus = 0;
+bool programming = false;
+int millisSinceProgramming;
+int buttonPin = 8;
+
+int zone1Pin = 10;
+int zone2Pin = 11;
+int zone3Pin = 12;
+int zone4Pin = 13;
+
+
+ezButton button(7);
+Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
 
   Serial.begin(9600);
+  leds.begin();
+  
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
+  pinMode(buttonPin, OUTPUT);
+  pinMode(zone1Pin, OUTPUT);
+  pinMode(zone2Pin, OUTPUT);
+  pinMode(zone3Pin, OUTPUT);
+  pinMode(zone4Pin, OUTPUT);
+
+  button.setDebounceTime(100);
   connectToWifi();
   getCurrentTime();
+
+  Serial.println("Setup finished!");
 }
 
 void loop() {
+  button.loop();
 
+  Serial.print("Watering Status: ");
+  Serial.println(wateringStatus);
+
+// update the current time
+// update the LCD display
+// When the hour is = 0, get a new time from the internet
+
+  if (programming) {
+    leds.setPixelColor(0, 0xFFF04C); 
+    leds.setBrightness(10);
+    leds.show();
+  } else if (wateringStatus == 0) {
+    leds.setPixelColor(0, 0xEF5858); 
+    leds.setBrightness(10);
+    leds.show();
+  } else if (wateringStatus != 0) {
+    leds.setPixelColor(0, 0x0079BF); 
+    leds.setBrightness(10);
+    leds.show();
+  }
+
+  if (button.isPressed()) {
+    Serial.println("button is pressed");
+    }
+
+  if(button.isReleased()) {
+    Serial.println("button is released");
+    }
+
+  // If the button is pressed down and its in idle mode, then enter programming mode
+  if (wateringStatus == 0 && button.isPressed()) {
+    Serial.println("Entering programming mode");
+    wateringStatus = 1;
+    programming = true;
+    millisSinceProgramming = millis();
+    
+  } else if (wateringStatus > 0 && button.isPressed()) {
+    Serial.println("Changing watering zone");
+    programming = true;
+    
+    if (wateringStatus >= 4) {
+      wateringStatus = 1;
+    } else {
+      wateringStatus += 1;
+      }
+      
+    millisSinceProgramming = millis();
+    }
+
+  // if there have been 5 seconds passed since a change, then we go into watering mode
+  if (millis() - millisSinceProgramming > 5000 && programming) {
+    Serial.println("Entering watering mode, exisiting programming");
+    programming = false;
+
+    digitalWrite(zone1Pin, LOW);
+    digitalWrite(zone2Pin, LOW);
+    digitalWrite(zone3Pin, LOW);
+    digitalWrite(zone4Pin, LOW);
+
+    if (wateringStatus == 1) {
+      digitalWrite(zone1Pin, HIGH);
+    } else if (wateringStatus == 2) {
+      digitalWrite(zone2Pin, HIGH);
+    } else if (wateringStatus == 3) {
+      digitalWrite(zone3Pin, HIGH);
+    } else if (wateringStatus == 4) {
+      digitalWrite(zone4Pin, HIGH);
+    }
+   }
 }
 
 
