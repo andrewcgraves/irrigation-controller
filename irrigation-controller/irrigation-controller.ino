@@ -26,10 +26,17 @@
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
-int wateringStatus = 0;
-bool programming = false;
-int millisSinceProgramming;
+//int wateringStatus = 0;
+int wateringZone = 0;
+//bool programming = false;
+unsigned long int secondsSinceProgramming;
 int buttonPin = 8;
+
+int wateringStatus = 0;
+bool isWatering = false;
+int wateringTime = 2;
+int wateringStartTime;
+int wateringEndTime;
 
 int zone1Pin = 10;
 int zone2Pin = 11;
@@ -42,6 +49,9 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800)
 
 void setup() {
 
+  leds.setPixelColor(0, 0xFFFFFF); 
+  leds.setBrightness(10);
+  leds.show();
   Serial.begin(9600);
   leds.begin();
   
@@ -63,78 +73,114 @@ void setup() {
 }
 
 void loop() {
+
   button.loop();
 
-  Serial.print("Watering Status: ");
-  Serial.println(wateringStatus);
+  if (button.isPressed()) {
+     endWatering();
+     wateringStatus >= 4 ? wateringStatus = 1 : wateringStatus += 1;
+     secondsSinceProgramming = millis() / 1000;
+  }
+  
 
-// update the current time
-// update the LCD display
-// When the hour is = 0, get a new time from the internet
+  if (wateringStatus == 0) {
+     // STANDBY
 
-  if (programming) {
-    leds.setPixelColor(0, 0xFFF04C); 
-    leds.setBrightness(10);
-    leds.show();
-  } else if (wateringStatus == 0) {
     leds.setPixelColor(0, 0xEF5858); 
     leds.setBrightness(10);
     leds.show();
-  } else if (wateringStatus != 0) {
-    leds.setPixelColor(0, 0x0079BF); 
-    leds.setBrightness(10);
-    leds.show();
-  }
-
-  if (button.isPressed()) {
-    Serial.println("button is pressed");
-    }
-
-  if(button.isReleased()) {
-    Serial.println("button is released");
-    }
-
-  // If the button is pressed down and its in idle mode, then enter programming mode
-  if (wateringStatus == 0 && button.isPressed()) {
-    Serial.println("Entering programming mode");
-    wateringStatus = 1;
-    programming = true;
-    millisSinceProgramming = millis();
+     
     
-  } else if (wateringStatus > 0 && button.isPressed()) {
-    Serial.println("Changing watering zone");
-    programming = true;
-    
-    if (wateringStatus >= 4) {
-      wateringStatus = 1;
-    } else {
-      wateringStatus += 1;
+  } else if (wateringStatus > 0) {
+      // WATERING
+
+      if(isWatering) {
+          // Set the LED color
+          leds.setPixelColor(0, 0x0079BF); 
+          leds.setBrightness(10);
+          leds.show();
+
+          // check the watering timer
+          if (wateringEndTime <= minute()) {
+              Serial.println("done watering");
+              endWatering();
+              wateringStatus = 0;
+          }
+          
+      } else {
+          leds.setPixelColor(0, 0xFFF04C); 
+          leds.setBrightness(10);
+          leds.show();
       }
-      
-    millisSinceProgramming = millis();
-    }
 
-  // if there have been 5 seconds passed since a change, then we go into watering mode
-  if (millis() - millisSinceProgramming > 5000 && programming) {
-    Serial.println("Entering watering mode, exisiting programming");
-    programming = false;
+      if (isWatering == false && secondsSinceProgramming && (millis() / 1000 ) - secondsSinceProgramming > 5) {
+          Serial.print(millis() / 1000);
+          Serial.print(" - ");
+          Serial.println(secondsSinceProgramming);
+          secondsSinceProgramming = NULL;
+          Serial.println("Watering!");
+          watering();
 
+      } 
+   }
+}
+
+
+
+// --------------------------------
+// WATERING
+// --------------------------------
+
+void endWatering() {
+
+    // Set all the zones to be off
     digitalWrite(zone1Pin, LOW);
     digitalWrite(zone2Pin, LOW);
     digitalWrite(zone3Pin, LOW);
     digitalWrite(zone4Pin, LOW);
 
+    isWatering = false;
+//    wateringStatus = 0;
+    
+}
+
+void watering() {
+
+  Serial.print("Watering zone: ");
+  Serial.println(wateringStatus);
+
+    endWatering();
+    isWatering = true;
+
+
+    // Set the starting and ending time for the timer
+    wateringStartTime = minute();
+    wateringEndTime = minute() + wateringTime;
+
+    // Make sure it does not go over the 60 min limit
+    if (wateringEndTime > 60) {
+      wateringEndTime -= 60;
+    }
+
+    Serial.print("Started watering: ");
+    Serial.println(wateringStartTime);
+    Serial.print("Watering end time: ");
+    Serial.println(wateringEndTime);
+
     if (wateringStatus == 1) {
       digitalWrite(zone1Pin, HIGH);
+      
     } else if (wateringStatus == 2) {
       digitalWrite(zone2Pin, HIGH);
+      
     } else if (wateringStatus == 3) {
       digitalWrite(zone3Pin, HIGH);
+
     } else if (wateringStatus == 4) {
       digitalWrite(zone4Pin, HIGH);
+
     }
-   }
-}
+  }
 
 
 // --------------------------------
@@ -147,7 +193,6 @@ void checkCurrentTime() {
   Serial.println(hour());
   Serial.println(minute());
   Serial.println(second());
-  
  }
 
 void getCurrentTime() {
