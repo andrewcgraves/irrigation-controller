@@ -26,13 +26,10 @@
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
-//int wateringStatus = 0;
-int wateringZone = 0;
-//bool programming = false;
 unsigned long int secondsSinceProgramming;
 int buttonPin = 8;
 
-int wateringStatus = 0;
+int wateringZone = 0;
 bool isWatering = false;
 int wateringTime = 2;
 int wateringStartTime;
@@ -43,9 +40,13 @@ int zone2Pin = 11;
 int zone3Pin = 12;
 int zone4Pin = 13;
 
-
 ezButton button(7);
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
+
+
+// --------------------------------
+// SETUP
+// --------------------------------
 
 void setup() {
 
@@ -72,26 +73,31 @@ void setup() {
   Serial.println("Setup finished!");
 }
 
+
+// --------------------------------
+// LOOP
+// --------------------------------
+
 void loop() {
 
   button.loop();
 
   if (button.isPressed()) {
      endWatering();
-     wateringStatus >= 4 ? wateringStatus = 1 : wateringStatus += 1;
+     wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
      secondsSinceProgramming = millis() / 1000;
   }
   
 
-  if (wateringStatus == 0) {
+  if (wateringZone == 0) {
      // STANDBY
 
-    leds.setPixelColor(0, 0xEF5858); 
-    leds.setBrightness(10);
-    leds.show();
+     leds.setPixelColor(0, 0xFFFFFF); 
+     leds.setBrightness(10);
+     leds.show();
      
     
-  } else if (wateringStatus > 0) {
+  } else if (wateringZone > 0) {
       // WATERING
 
       if(isWatering) {
@@ -104,7 +110,7 @@ void loop() {
           if (wateringEndTime <= minute()) {
               Serial.println("done watering");
               endWatering();
-              wateringStatus = 0;
+              wateringZone = 0;
           }
           
       } else {
@@ -126,7 +132,6 @@ void loop() {
 }
 
 
-
 // --------------------------------
 // WATERING
 // --------------------------------
@@ -140,14 +145,13 @@ void endWatering() {
     digitalWrite(zone4Pin, LOW);
 
     isWatering = false;
-//    wateringStatus = 0;
     
 }
 
 void watering() {
 
   Serial.print("Watering zone: ");
-  Serial.println(wateringStatus);
+  Serial.println(wateringZone);
 
     endWatering();
     isWatering = true;
@@ -167,16 +171,16 @@ void watering() {
     Serial.print("Watering end time: ");
     Serial.println(wateringEndTime);
 
-    if (wateringStatus == 1) {
+    if (wateringZone == 1) {
       digitalWrite(zone1Pin, HIGH);
       
-    } else if (wateringStatus == 2) {
+    } else if (wateringZone == 2) {
       digitalWrite(zone2Pin, HIGH);
       
-    } else if (wateringStatus == 3) {
+    } else if (wateringZone == 3) {
       digitalWrite(zone3Pin, HIGH);
 
-    } else if (wateringStatus == 4) {
+    } else if (wateringZone == 4) {
       digitalWrite(zone4Pin, HIGH);
 
     }
