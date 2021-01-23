@@ -18,6 +18,8 @@
 #include <TimeLib.h>
 #include <ezButton.h>
 #include <Adafruit_NeoPixel.h>
+#include <SerLCD.h>
+#include <Wire.h>
 
 #include "arduino_secrets.h"
 #define PIN 4
@@ -35,6 +37,12 @@ int wateringTime = 2;
 int wateringStartTime;
 int wateringEndTime;
 
+int lastHour;
+int lastMinute;
+int lastSecond;
+
+int lastWatered;
+
 int zone1Pin = 10;
 int zone2Pin = 11;
 int zone3Pin = 12;
@@ -42,6 +50,7 @@ int zone4Pin = 13;
 
 ezButton button(7);
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
+SerLCD lcd;
 
 
 // --------------------------------
@@ -50,23 +59,36 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800)
 
 void setup() {
 
-  leds.setPixelColor(0, 0xFFFFFF); 
-  leds.setBrightness(10);
-  leds.show();
-  Serial.begin(9600);
+  // General preperation
+  Wire.begin();
+  lcd.begin(Wire);
   leds.begin();
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
+  button.setDebounceTime(100);
 
+  lcd.setBacklight(255, 255, 255); //Set backlight to bright white
+  lcd.setContrast(5); //Set contrast. Lower to 0 for higher contrast.
+
+  // Setting all the pins to default
   pinMode(buttonPin, OUTPUT);
   pinMode(zone1Pin, OUTPUT);
   pinMode(zone2Pin, OUTPUT);
   pinMode(zone3Pin, OUTPUT);
   pinMode(zone4Pin, OUTPUT);
+  endWatering();
 
-  button.setDebounceTime(100);
+  // Setting the LED color while booting up
+  leds.setPixelColor(0, 0xE34C00); 
+  leds.setBrightness(10);
+  leds.show();
+
+  // Starting serial
+  Serial.begin(9600);
+  
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+
+  // Functions to start out
   connectToWifi();
   getCurrentTime();
 
@@ -80,8 +102,14 @@ void setup() {
 
 void loop() {
 
+//  lcd.clear(); //Clear the display - this moves the cursor to home position as well
+//  lcd.print("Setup finished!");
+
   button.loop();
 
+  // Check to see if the minute hour and second are midnight and then reclock the time to match the satelite time.
+
+  // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
   if (button.isPressed()) {
      endWatering();
      wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
@@ -109,6 +137,10 @@ void loop() {
           // check the watering timer
           if (wateringEndTime <= minute()) {
               Serial.println("done watering");
+
+              lcd.clear(); //Clear the display - this moves the cursor to home position as well
+              lcd.print("Watering ended!");
+              
               endWatering();
               wateringZone = 0;
           }
@@ -125,6 +157,11 @@ void loop() {
           Serial.println(secondsSinceProgramming);
           secondsSinceProgramming = NULL;
           Serial.println("Watering!");
+
+
+          lcd.clear(); //Clear the display - this moves the cursor to home position as well
+          lcd.print("Watering!");
+          
           watering();
 
       } 
@@ -139,10 +176,10 @@ void loop() {
 void endWatering() {
 
     // Set all the zones to be off
-    digitalWrite(zone1Pin, LOW);
-    digitalWrite(zone2Pin, LOW);
-    digitalWrite(zone3Pin, LOW);
-    digitalWrite(zone4Pin, LOW);
+    digitalWrite(zone1Pin, HIGH);
+    digitalWrite(zone2Pin, HIGH);
+    digitalWrite(zone3Pin, HIGH);
+    digitalWrite(zone4Pin, HIGH);
 
     isWatering = false;
     
@@ -153,38 +190,37 @@ void watering() {
   Serial.print("Watering zone: ");
   Serial.println(wateringZone);
 
-    endWatering();
-    isWatering = true;
+  endWatering();
+  isWatering = true;
 
+  // Set the starting and ending time for the timer
+  wateringStartTime = minute();
+  wateringEndTime = minute() + wateringTime;
 
-    // Set the starting and ending time for the timer
-    wateringStartTime = minute();
-    wateringEndTime = minute() + wateringTime;
-
-    // Make sure it does not go over the 60 min limit
-    if (wateringEndTime > 60) {
-      wateringEndTime -= 60;
-    }
-
-    Serial.print("Started watering: ");
-    Serial.println(wateringStartTime);
-    Serial.print("Watering end time: ");
-    Serial.println(wateringEndTime);
-
-    if (wateringZone == 1) {
-      digitalWrite(zone1Pin, HIGH);
-      
-    } else if (wateringZone == 2) {
-      digitalWrite(zone2Pin, HIGH);
-      
-    } else if (wateringZone == 3) {
-      digitalWrite(zone3Pin, HIGH);
-
-    } else if (wateringZone == 4) {
-      digitalWrite(zone4Pin, HIGH);
-
-    }
+  // Make sure it does not go over the 60 min limit
+  if (wateringEndTime > 60) {
+    wateringEndTime -= 60;
   }
+
+  Serial.print("Started watering: ");
+  Serial.println(wateringStartTime);
+  Serial.print("Watering end time: ");
+  Serial.println(wateringEndTime);
+
+  if (wateringZone == 1) {
+    digitalWrite(zone1Pin, LOW);
+    
+  } else if (wateringZone == 2) {
+    digitalWrite(zone2Pin, LOW);
+    
+  } else if (wateringZone == 3) {
+    digitalWrite(zone3Pin, LOW);
+
+  } else if (wateringZone == 4) {
+    digitalWrite(zone4Pin, LOW);
+
+  }
+}
 
 
 // --------------------------------
@@ -209,10 +245,9 @@ void getCurrentTime() {
   setTime(epochTime);
   adjustTime(3600 * -8);
 
-  Serial.print("time result:");
-  Serial.println(hour());
-  Serial.println(minute());
-  Serial.println(second());
+  lastHour(hour());
+  lastMinute(minute());
+  lastSecond(second());
   
  }
 
@@ -223,6 +258,9 @@ void getCurrentTime() {
 
 
 void connectToWifi() {
+    lcd.clear(); //Clear the display - this moves the cursor to home position as well
+    lcd.print("Connecting to WiFi...");
+  
     // check for the WiFi module:
     if (WiFi.status() == WL_NO_MODULE) {
       Serial.println("Communication with WiFi module failed!");
@@ -282,6 +320,9 @@ void printCurrentNet() {
   // print the SSID of the network you're attached to:
   Serial.print("SSID: ");
   Serial.println(WiFi.SSID());
+
+  lcd.clear(); //Clear the display - this moves the cursor to home position as well
+  lcd.print("Connected!");
 
   // print the MAC address of the router you're attached to:
   byte bssid[6];
