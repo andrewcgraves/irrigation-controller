@@ -32,6 +32,8 @@ unsigned long int secondsSinceProgramming;
 int buttonPin = 8;
 
 int wateringZone = 0;
+int lastWateringZone = -1;
+
 bool isWatering = false;
 int wateringTime = 2;
 int wateringStartTime;
@@ -123,6 +125,13 @@ void loop() {
      leds.setPixelColor(0, 0xFFFFFF); 
      leds.setBrightness(10);
      leds.show();
+
+     if (wateringZone != lastWateringZone) {
+       lcd.clear(); //Clear the display - this moves the cursor to home position as well
+       lcd.print("System Ready...");
+
+       lastWateringZone = 0;
+      }
      
     
   } else if (wateringZone > 0) {
@@ -157,10 +166,6 @@ void loop() {
           Serial.println(secondsSinceProgramming);
           secondsSinceProgramming = NULL;
           Serial.println("Watering!");
-
-
-          lcd.clear(); //Clear the display - this moves the cursor to home position as well
-          lcd.print("Watering!");
           
           watering();
 
@@ -207,6 +212,22 @@ void watering() {
   Serial.print("Watering end time: ");
   Serial.println(wateringEndTime);
 
+   lcd.clear(); //Clear the display - this moves the cursor to home position as well
+   lcd.print("Watering zone ");
+   lcd.print(wateringZone);
+   lcd.setCursor(0,1);
+   lcd.print("Ends at ");
+
+   if (wateringEndTime < wateringStartTime) {
+    lcd.print(hour()+1); 
+   } else {
+    lcd.print(hour()); 
+   }
+
+   lcd.print(":");
+   lcd.print(wateringEndTime);
+          
+
   if (wateringZone == 1) {
     digitalWrite(zone1Pin, LOW);
     
@@ -245,9 +266,9 @@ void getCurrentTime() {
   setTime(epochTime);
   adjustTime(3600 * -8);
 
-  lastHour(hour());
-  lastMinute(minute());
-  lastSecond(second());
+//  lastHour(hour());
+//  lastMinute(minute());
+//  lastSecond(second());
   
  }
 
