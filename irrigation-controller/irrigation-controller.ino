@@ -151,6 +151,7 @@ void loop() {
               lcd.print("Watering ended!");
               
               endWatering();
+              lastWateringZone = wateringZone;
               wateringZone = 0;
           }
           
