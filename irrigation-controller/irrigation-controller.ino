@@ -29,13 +29,13 @@ char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 unsigned long int secondsSinceProgramming;
-int buttonPin = 8;
 
 int wateringZone = 0;
 int lastWateringZone = -1;
 
+bool isAutomatic = false;
 bool isWatering = false;
-int wateringTime = 2;
+int wateringTime = 1;
 int wateringStartTime;
 int wateringEndTime;
 
@@ -44,6 +44,8 @@ int lastMinute;
 int lastSecond;
 
 int lastWatered;
+bool timeReset = false;
+bool autoTriggered = false;
 
 int zone1Pin = 10;
 int zone2Pin = 11;
@@ -51,6 +53,7 @@ int zone3Pin = 12;
 int zone4Pin = 13;
 
 ezButton button(7);
+ezButton autoButton(8);
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
 SerLCD lcd;
 
@@ -66,12 +69,13 @@ void setup() {
   lcd.begin(Wire);
   leds.begin();
   button.setDebounceTime(100);
+  autoButton.setDebounceTime(100);
 
   lcd.setBacklight(255, 255, 255); //Set backlight to bright white
   lcd.setContrast(5); //Set contrast. Lower to 0 for higher contrast.
 
   // Setting all the pins to default
-  pinMode(buttonPin, OUTPUT);
+//  pinMode(buttonPin, OUTPUT);
   pinMode(zone1Pin, OUTPUT);
   pinMode(zone2Pin, OUTPUT);
   pinMode(zone3Pin, OUTPUT);
@@ -108,23 +112,61 @@ void loop() {
 //  lcd.print("Setup finished!");
 
   button.loop();
+  autoButton.loop();
+  
 
-  // Check to see if the minute hour and second are midnight and then reclock the time to match the satelite time.
+  // Check to see if the minute hour and second are at the hour
+  if (second() == 0 && minute() == 0 && !timeReset) {
+    getCurrentTime();
+    timeReset = true;
+  }
+
+  if (second() == 1) {
+    timeReset = false;  
+  }
 
   // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
   if (button.isPressed()) {
      endWatering();
      wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
      secondsSinceProgramming = millis() / 1000;
+     isAutomatic = false;
   }
+
+  if (autoButton.isPressed()) {
+     isAutomatic = true;
+
+     leds.setPixelColor(0, 0x43FC18); 
+     leds.setBrightness(10);
+     leds.show();
+
+     Serial.println("Automatic!");
+  }
+
+  // Schedule programming
+  if (second() == 0 && minute() == 21 && hour() == 21 && isAutomatic && !autoTriggered) {
+    
+    endWatering();
+    wateringZone = 1;
+    watering();
+    autoTriggered = true;
+  }
+
+  if (second() == 1 && minute() == 21 && hour() == 21) {
+    autoTriggered = false;
+  }
+
+  // badly programmed schedule
   
 
   if (wateringZone == 0) {
      // STANDBY
 
-     leds.setPixelColor(0, 0xFFFFFF); 
-     leds.setBrightness(10);
-     leds.show();
+     if (!isAutomatic) {
+      leds.setPixelColor(0, 0xFFFFFF); 
+      leds.setBrightness(10);
+      leds.show();
+     }
 
      if (wateringZone != lastWateringZone) {
        lcd.clear(); //Clear the display - this moves the cursor to home position as well
@@ -145,14 +187,27 @@ void loop() {
 
           // check the watering timer
           if (wateringEndTime <= minute()) {
-              Serial.println("done watering");
 
-              lcd.clear(); //Clear the display - this moves the cursor to home position as well
-              lcd.print("Watering ended!");
-              
-              endWatering();
-              lastWateringZone = wateringZone;
-              wateringZone = 0;
+              if (isAutomatic && wateringZone < 2) {
+                lcd.clear(); //Clear the display - this moves the cursor to home position as well
+                lcd.print("Watering next zone!");
+                Serial.println("Watering Next Zone");
+                
+                lastWateringZone = wateringZone;
+                wateringZone += 1;
+                endWatering();
+                watering();
+                
+              } else {
+                lcd.clear(); //Clear the display - this moves the cursor to home position as well
+                lcd.print("Watering ended!");
+                Serial.println("done watering");
+                
+                isAutomatic = false;
+                endWatering();
+                lastWateringZone = wateringZone;
+                wateringZone = 0;
+              }
           }
           
       } else {
@@ -266,10 +321,6 @@ void getCurrentTime() {
 
   setTime(epochTime);
   adjustTime(3600 * -8);
-
-//  lastHour(hour());
-//  lastMinute(minute());
-//  lastSecond(second());
   
  }
 
