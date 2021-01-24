@@ -52,7 +52,7 @@ int zone2Pin = 11;
 int zone3Pin = 12;
 int zone4Pin = 13;
 
-ezButton button(7);
+ezButton manualButton(7);
 ezButton autoButton(8);
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
 SerLCD lcd;
@@ -68,7 +68,7 @@ void setup() {
   Wire.begin();
   lcd.begin(Wire);
   leds.begin();
-  button.setDebounceTime(100);
+  manualButton.setDebounceTime(100);
   autoButton.setDebounceTime(100);
 
   lcd.setBacklight(255, 255, 255); //Set backlight to bright white
@@ -108,56 +108,65 @@ void setup() {
 
 void loop() {
 
-//  lcd.clear(); //Clear the display - this moves the cursor to home position as well
-//  lcd.print("Setup finished!");
-
-  button.loop();
+  manualButton.loop();
   autoButton.loop();
   
-
   // Check to see if the minute hour and second are at the hour
-  if (second() == 0 && minute() == 0 && !timeReset) {
-    getCurrentTime();
-    timeReset = true;
-  }
-
-  if (second() == 1) {
-    timeReset = false;  
-  }
+//  if (second() == 0 && minute() == 0 && !timeReset) {
+//    getCurrentTime();
+//    timeReset = true;
+//  }
+//
+//  if (second() == 1) {
+//    timeReset = false;  
+//  }
 
   // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
-  if (button.isPressed()) {
+  if (manualButton.isPressed()) {
      endWatering();
      wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
      secondsSinceProgramming = millis() / 1000;
      isAutomatic = false;
+
+     lcd.clear(); //Clear the display - this moves the cursor to home position as well
+     lcd.print("Zone ");
+     lcd.print(wateringZone);
   }
 
   if (autoButton.isPressed()) {
-     isAutomatic = true;
+    isWatering = false;
+
+    if (isAutomatic) {
+      isAutomatic = false;  
+      Serial.println("Automatic off");
+
+      lcd.clear(); //Clear the display - this moves the cursor to home position as well
+      lcd.print("System Ready...");
+      
+    } else {
+      isAutomatic = true;
+     Serial.println("Automatic!");
 
      leds.setPixelColor(0, 0x43FC18); 
      leds.setBrightness(10);
      leds.show();
 
-     Serial.println("Automatic!");
+     lcd.clear(); //Clear the display - this moves the cursor to home position as well
+     lcd.print("Watering will start at 9:00 PM");
+    }
   }
 
-  // Schedule programming
-  if (second() == 0 && minute() == 21 && hour() == 21 && isAutomatic && !autoTriggered) {
-    
+  // Scheduled programming
+  if (second() == 0 && minute() == 0 && hour() == 21 && isAutomatic && !autoTriggered) {
     endWatering();
     wateringZone = 1;
     watering();
     autoTriggered = true;
   }
 
-  if (second() == 1 && minute() == 21 && hour() == 21) {
+  if (second() == 1 && minute() == 0 && hour() == 21) {
     autoTriggered = false;
   }
-
-  // badly programmed schedule
-  
 
   if (wateringZone == 0) {
      // STANDBY
@@ -166,6 +175,7 @@ void loop() {
       leds.setPixelColor(0, 0xFFFFFF); 
       leds.setBrightness(10);
       leds.show();
+      
      }
 
      if (wateringZone != lastWateringZone) {
@@ -189,7 +199,7 @@ void loop() {
           if (wateringEndTime <= minute()) {
 
               if (isAutomatic && wateringZone < 2) {
-                lcd.clear(); //Clear the display - this moves the cursor to home position as well
+                lcd.clear();
                 lcd.print("Watering next zone!");
                 Serial.println("Watering Next Zone");
                 
