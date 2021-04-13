@@ -30,12 +30,15 @@ char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as k
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 unsigned long int secondsSinceProgramming;
 
+// ENV Vars
+int NUMBER_OF_WATERING_ZONES = 2;
+int WATERING_TIME_MIN = 10;
+
 int wateringZone = 0;
 int lastWateringZone = -1;
 
 bool isAutomatic = false;
 bool isWatering = false;
-int wateringTime = 10;
 int wateringStartTime;
 int wateringEndTime;
 
@@ -75,7 +78,6 @@ void setup() {
   lcd.setContrast(5); //Set contrast. Lower to 0 for higher contrast.
 
   // Setting all the pins to default
-//  pinMode(buttonPin, OUTPUT);
   pinMode(zone1Pin, OUTPUT);
   pinMode(zone2Pin, OUTPUT);
   pinMode(zone3Pin, OUTPUT);
@@ -87,12 +89,12 @@ void setup() {
   leds.setBrightness(10);
   leds.show();
 
-  // Starting serial
-//  Serial.begin(9600);
-//  
-//  while (!Serial) {
-//    ; // wait for serial port to connect. Needed for native USB port only
-//  }
+  // Starting serial - DEBUGGING
+  //  Serial.begin(9600);
+  //  
+  //  while (!Serial) {
+  //    ; // wait for serial port to connect. Needed for native USB port only
+  //  }
 
   // Functions to start out
   connectToWifi();
@@ -107,11 +109,11 @@ void setup() {
 // --------------------------------
 
 void loop() {
-
   manualButton.loop();
   autoButton.loop();
   
-  // Check to see if the minute hour and second are at the hour
+  // Check to see if the minute hour and second are at the hour and reset the time accordingly
+  // This aims to keep the time accurate because it will slowly fall behind
   if (second() == 0 && minute() == 0 && !timeReset) {
     getCurrentTime();
     timeReset = true;
@@ -123,14 +125,14 @@ void loop() {
 
   // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
   if (manualButton.isPressed()) {
-     endWatering();
-     wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
-     secondsSinceProgramming = millis() / 1000;
-     isAutomatic = false;
+    endWatering();
+    wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
+    secondsSinceProgramming = millis() / 1000;
+    isAutomatic = false;
 
-     lcd.clear(); //Clear the display - this moves the cursor to home position as well
-     lcd.print("Zone ");
-     lcd.print(wateringZone);
+    lcd.clear(); //Clear the display - this moves the cursor to home position as well
+    lcd.print("Zone ");
+    lcd.print(wateringZone);
   }
 
   if (autoButton.isPressed()) {
@@ -145,14 +147,14 @@ void loop() {
       
     } else {
       isAutomatic = true;
-     Serial.println("Automatic!");
+      Serial.println("Automatic!");
 
-     leds.setPixelColor(0, 0x43FC18); 
-     leds.setBrightness(10);
-     leds.show();
+      leds.setPixelColor(0, 0x43FC18); 
+      leds.setBrightness(10);
+      leds.show();
 
-     lcd.clear(); //Clear the display - this moves the cursor to home position as well
-     lcd.print("Watering will start at 9:00 PM");
+      lcd.clear(); //Clear the display - this moves the cursor to home position as well
+      lcd.print("Watering will start at 9:00 PM");
     }
   }
 
@@ -171,87 +173,84 @@ void loop() {
   if (wateringZone == 0) {
      // STANDBY
 
-     if (!isAutomatic) {
+    if (!isAutomatic) {
       leds.setPixelColor(0, 0xFFFFFF); 
       leds.setBrightness(10);
       leds.show();
-     }
+    }
 
-     if (wateringZone != lastWateringZone) {
-       lcd.clear(); //Clear the display - this moves the cursor to home position as well
-       lcd.print("System Ready...");
+    if (wateringZone != lastWateringZone) {
+      lcd.clear(); //Clear the display - this moves the cursor to home position as well
+      lcd.print("System Ready...");
+      Serial.println("clearing in wateringZone != lastWateringZone");
 
-       Serial.println("clearing in wateringZone != lastWateringZone");
-
-       lastWateringZone = 0;
-      }
+      lastWateringZone = 0;
+    }
     
   } else if (wateringZone > 0) {
       // WATERING
 
-      if(isWatering) {
-          // Set the LED color
-          leds.setPixelColor(0, 0x0079BF); 
-          leds.setBrightness(10);
-          leds.show();
+    if(isWatering) {
+      // Set the LED color
+      leds.setPixelColor(0, 0x0079BF); 
+      leds.setBrightness(10);
+      leds.show();
 
-          // check the watering timer
-          if (wateringEndTime <= minute()) {
-
-              if (isAutomatic && wateringZone < 2) {
-                lcd.clear();
-                lcd.print("Watering next zone!");
-                Serial.println("Watering Next Zone");
-                
-                lastWateringZone = wateringZone;
-                wateringZone += 1;
-                endWatering();
-                watering();
-                
-              } else if (isAutomatic && wateringZone >= 2) {
-
-                endWatering();
-                isAutomatic = true;
-
-                leds.setPixelColor(0, 0x43FC18); 
-                leds.setBrightness(10);
-                leds.show();
-          
-                lcd.clear(); //Clear the display - this moves the cursor to home position as well
-                lcd.print("Watering will start at 9:00 PM");
-
-                lastWateringZone = wateringZone;
-                wateringZone = 0;
-                Serial.println("Setting back to auto state");
-                
-              } else {
-                lcd.clear(); //Clear the display - this moves the cursor to home position as well
-                lcd.print("Watering ended!");
-                Serial.println("done watering");
-                
-                isAutomatic = false;
-                endWatering();
-                lastWateringZone = wateringZone;
-                wateringZone = 0;
-              }
-          }
-          
-      } else {
-          leds.setPixelColor(0, 0xFFF04C); 
-          leds.setBrightness(10);
-          leds.show();
-      }
-
-      if (isWatering == false && secondsSinceProgramming && (millis() / 1000 ) - secondsSinceProgramming > 5) {
-          Serial.print(millis() / 1000);
-          Serial.print(" - ");
-          Serial.println(secondsSinceProgramming);
-          secondsSinceProgramming = NULL;
-          Serial.println("Watering!");
-          
+      // check the watering timer
+      if (wateringEndTime <= minute()) {
+        if (isAutomatic && wateringZone < 2) {
+          lcd.clear();
+          lcd.print("Watering next zone!");
+          Serial.println("Watering Next Zone");
+            
+          lastWateringZone = wateringZone;
+          wateringZone += 1;
+          endWatering();
           watering();
-      } 
-   }
+            
+        } else if (isAutomatic && wateringZone >= 2) {
+
+          endWatering();
+          isAutomatic = true;
+
+          leds.setPixelColor(0, 0x43FC18); 
+          leds.setBrightness(10);
+          leds.show();
+      
+          lcd.clear(); //Clear the display - this moves the cursor to home position as well
+          lcd.print("Watering will start at 9:00 PM");
+
+          lastWateringZone = wateringZone;
+          wateringZone = 0;
+          Serial.println("Setting back to auto state");
+            
+        } else {
+          lcd.clear(); //Clear the display - this moves the cursor to home position as well
+          lcd.print("Watering ended!");
+          Serial.println("done watering");
+          
+          isAutomatic = false;
+          endWatering();
+          lastWateringZone = wateringZone;
+          wateringZone = 0;
+        }
+      }
+    } else {
+      leds.setPixelColor(0, 0xFFF04C); 
+      leds.setBrightness(10);
+      leds.show();
+    }
+
+    if (isWatering == false && secondsSinceProgramming && (millis() / 1000 ) - secondsSinceProgramming > 5) {
+      Serial.print(millis() / 1000);
+      Serial.print(" - ");
+      Serial.println(secondsSinceProgramming);
+      secondsSinceProgramming = NULL;
+      Serial.println("Watering!");
+        
+      watering();
+    } 
+  }
 }
 
 
@@ -261,14 +260,12 @@ void loop() {
 
 void endWatering() {
 
-    // Set all the zones to be off
-    digitalWrite(zone1Pin, HIGH);
-    digitalWrite(zone2Pin, HIGH);
-    digitalWrite(zone3Pin, HIGH);
-    digitalWrite(zone4Pin, HIGH);
-
-    isWatering = false;
-    
+  // Set all the zones to be off
+  digitalWrite(zone1Pin, HIGH);
+  digitalWrite(zone2Pin, HIGH);
+  digitalWrite(zone3Pin, HIGH);
+  digitalWrite(zone4Pin, HIGH);
+  isWatering = false;
 }
 
 void watering() {
@@ -281,7 +278,7 @@ void watering() {
 
   // Set the starting and ending time for the timer
   wateringStartTime = minute();
-  wateringEndTime = minute() + wateringTime;
+  wateringEndTime = minute() + WATERING_TIME_MIN;
 
   // Make sure it does not go over the 60 min limit
   if (wateringEndTime > 60) {
@@ -293,20 +290,20 @@ void watering() {
   Serial.print("Watering end time: ");
   Serial.println(wateringEndTime);
 
-   lcd.clear(); //Clear the display - this moves the cursor to home position as well
-   lcd.print("Watering zone ");
-   lcd.print(wateringZone);
-   lcd.setCursor(0,1);
-   lcd.print("Ends at ");
+  lcd.clear(); //Clear the display - this moves the cursor to home position as well
+  lcd.print("Watering zone ");
+  lcd.print(wateringZone);
+  lcd.setCursor(0,1);
+  lcd.print("Ends at ");
 
-   if (wateringEndTime < wateringStartTime) {
+  if (wateringEndTime < wateringStartTime) {
     lcd.print(hour()+1); 
-   } else {
+  } else {
     lcd.print(hour()); 
-   }
+  }
 
-   lcd.print(":");
-   lcd.print(wateringEndTime);
+  lcd.print(":");
+  lcd.print(wateringEndTime);
           
 
   if (wateringZone == 1) {
@@ -335,7 +332,7 @@ void checkCurrentTime() {
   Serial.println(hour());
   Serial.println(minute());
   Serial.println(second());
- }
+}
 
 void getCurrentTime() {
   Serial.println("Getting the current time");
@@ -347,7 +344,7 @@ void getCurrentTime() {
   setTime(epochTime);
   adjustTime(3600 * -7);
   
- }
+}
 
 
 // --------------------------------
@@ -356,38 +353,38 @@ void getCurrentTime() {
 
 
 void connectToWifi() {
-    lcd.clear(); //Clear the display - this moves the cursor to home position as well
-    lcd.print("Connecting to WiFi...");
+  lcd.clear(); //Clear the display - this moves the cursor to home position as well
+  lcd.print("Connecting to WiFi...");
   
-    // check for the WiFi module:
-    if (WiFi.status() == WL_NO_MODULE) {
-      Serial.println("Communication with WiFi module failed!");
-      // don't continue
-      while (true);
-    }
-    
-    String fv = WiFi.firmwareVersion();
-    
-    if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
-      Serial.println("Please upgrade the firmware");
-    }
-    
-    // attempt to connect to WiFi network:
-    while ( status != WL_CONNECTED) {
-      Serial.print("Attempting to connect to WPA SSID: ");
-      Serial.println(ssid);
-    
-      // Connect to WPA/WPA2 network:
-      status = WiFi.begin(ssid, pass);
-      // wait 5 seconds for connection:
-      delay(5000);
-    }
-    
-    // you're connected now, so print out the data:
-    Serial.println("You're connected to the network");
-    printCurrentNet();
-    printWiFiData();
+  // check for the WiFi module:
+  if (WiFi.status() == WL_NO_MODULE) {
+    Serial.println("Communication with WiFi module failed!");
+    // don't continue
+    while (true);
   }
+    
+  String fv = WiFi.firmwareVersion();
+    
+  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
+    Serial.println("Please upgrade the firmware");
+  }
+    
+  // attempt to connect to WiFi network:
+  while ( status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to WPA SSID: ");
+    Serial.println(ssid);
+    
+    // Connect to WPA/WPA2 network:
+    status = WiFi.begin(ssid, pass);
+    // wait 5 seconds for connection:
+    delay(5000);
+  }
+    
+  // you're connected now, so print out the data:
+  Serial.println("You're connected to the network");
+  printCurrentNet();
+  printWiFiData();
+}
 
 
 // --------------------------------
