@@ -20,6 +20,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <SerLCD.h>
 #include <Wire.h>
+#include <Ethernet.h>
 
 #include "arduino_secrets.h"
 #define PIN 4
@@ -39,8 +40,8 @@ int lastWateringZone = -1;
 
 bool isAutomatic = false;
 bool isWatering = false;
-int wateringStartTime;
-int wateringEndTime;
+long wateringStartTime;
+long wateringEndTime;
 
 int lastHour;
 int lastMinute;
@@ -85,16 +86,17 @@ void setup() {
   endWatering();
 
   // Setting the LED color while booting up
-  leds.setPixelColor(0, 0xE34C00); 
-  leds.setBrightness(10);
-  leds.show();
+  setLedColor(0, 0xE34C00);
+  // leds.setPixelColor(0, 0xE34C00); 
+  // leds.setBrightness(10);
+  // leds.show();
 
   // Starting serial - DEBUGGING
-  //  Serial.begin(9600);
-  //  
-  //  while (!Serial) {
-  //    ; // wait for serial port to connect. Needed for native USB port only
-  //  }
+    Serial.begin(9600);
+    
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
 
   // Functions to start out
   connectToWifi();
@@ -149,9 +151,10 @@ void loop() {
       isAutomatic = true;
       Serial.println("Automatic!");
 
-      leds.setPixelColor(0, 0x43FC18); 
-      leds.setBrightness(10);
-      leds.show();
+      setLedColor(0, 0x43FC18);
+      // leds.setPixelColor(0, 0x43FC18); 
+      // leds.setBrightness(10);
+      // leds.show();
 
       lcd.clear(); //Clear the display - this moves the cursor to home position as well
       lcd.print("Watering will start at 9:00 PM");
@@ -174,9 +177,10 @@ void loop() {
      // STANDBY
 
     if (!isAutomatic) {
-      leds.setPixelColor(0, 0xFFFFFF); 
-      leds.setBrightness(10);
-      leds.show();
+      setLedColor(0, 0xFFFFFF);
+      // leds.setPixelColor(0, 0xFFFFFF); 
+      // leds.setBrightness(10);
+      // leds.show();
     }
 
     if (wateringZone != lastWateringZone) {
@@ -192,13 +196,21 @@ void loop() {
 
     if(isWatering) {
       // Set the LED color
-      leds.setPixelColor(0, 0x0079BF); 
-      leds.setBrightness(10);
-      leds.show();
+      setLedColor(0, 0x0079BF);
+      // leds.setPixelColor(0, 0x0079BF); 
+      // leds.setBrightness(10);
+      // leds.show();
 
       // check the watering timer
-      if (wateringEndTime <= minute()) {
-        if (isAutomatic && wateringZone < 2) {
+      if (wateringEndTime <= now()) {
+
+        Serial.print("END TIME: ");
+        Serial.println(wateringEndTime);
+        Serial.print("NOW TIME: ");
+        Serial.println(now());
+        
+        
+        if (isAutomatic && wateringZone < NUMBER_OF_WATERING_ZONES) {
           lcd.clear();
           lcd.print("Watering next zone!");
           Serial.println("Watering Next Zone");
@@ -208,14 +220,15 @@ void loop() {
           endWatering();
           watering();
             
-        } else if (isAutomatic && wateringZone >= 2) {
+        } else if (isAutomatic && wateringZone >= NUMBER_OF_WATERING_ZONES) {
 
           endWatering();
           isAutomatic = true;
 
-          leds.setPixelColor(0, 0x43FC18); 
-          leds.setBrightness(10);
-          leds.show();
+          setLedColor(0, 0x43FC18);
+          // leds.setPixelColor(0, 0x43FC18); 
+          // leds.setBrightness(10);
+          // leds.show();
       
           lcd.clear(); //Clear the display - this moves the cursor to home position as well
           lcd.print("Watering will start at 9:00 PM");
@@ -236,9 +249,10 @@ void loop() {
         }
       }
     } else {
-      leds.setPixelColor(0, 0xFFF04C); 
-      leds.setBrightness(10);
-      leds.show();
+      setLedColor(0, 0xFFF04C);
+      // leds.setPixelColor(0, 0xFFF04C); 
+      // leds.setBrightness(10);
+      // leds.show();
     }
 
     if (isWatering == false && secondsSinceProgramming && (millis() / 1000 ) - secondsSinceProgramming > 5) {
@@ -277,13 +291,13 @@ void watering() {
   isWatering = true;
 
   // Set the starting and ending time for the timer
-  wateringStartTime = minute();
-  wateringEndTime = minute() + WATERING_TIME_MIN;
+  wateringStartTime = now();
+  wateringEndTime = now() + WATERING_TIME_MIN*60;
 
   // Make sure it does not go over the 60 min limit
-  if (wateringEndTime > 60) {
-    wateringEndTime -= 60;
-  }
+//  if (wateringEndTime > 60) {
+//    wateringEndTime -= 60;
+//  }
 
   Serial.print("Started watering: ");
   Serial.println(wateringStartTime);
@@ -296,14 +310,15 @@ void watering() {
   lcd.setCursor(0,1);
   lcd.print("Ends at ");
 
-  if (wateringEndTime < wateringStartTime) {
-    lcd.print(hour()+1); 
+  if (minute() + WATERING_TIME_MIN >= 60) {
+    lcd.print(hour()+1);
+    lcd.print(":");
+    lcd.print(minute() + WATERING_TIME_MIN - 60);
   } else {
-    lcd.print(hour()); 
+    lcd.print(hour());
+    lcd.print(":");
+    lcd.print(minute() + WATERING_TIME_MIN);
   }
-
-  lcd.print(":");
-  lcd.print(wateringEndTime);
           
 
   if (wateringZone == 1) {
@@ -319,6 +334,17 @@ void watering() {
     digitalWrite(zone4Pin, LOW);
 
   }
+}
+
+// --------------------------------
+// HELPER FUNCTIONS
+// --------------------------------
+
+// Sets the LedColor from the number and color as an int
+void setLedColor(int number, long color) {
+  leds.setPixelColor(number, color); 
+  leds.setBrightness(10);
+  leds.show();
 }
 
 
