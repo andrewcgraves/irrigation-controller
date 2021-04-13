@@ -35,7 +35,7 @@ int lastWateringZone = -1;
 
 bool isAutomatic = false;
 bool isWatering = false;
-int wateringTime = 1;
+int wateringTime = 10;
 int wateringStartTime;
 int wateringEndTime;
 
@@ -88,11 +88,11 @@ void setup() {
   leds.show();
 
   // Starting serial
-  Serial.begin(9600);
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
+//  Serial.begin(9600);
+//  
+//  while (!Serial) {
+//    ; // wait for serial port to connect. Needed for native USB port only
+//  }
 
   // Functions to start out
   connectToWifi();
@@ -112,14 +112,14 @@ void loop() {
   autoButton.loop();
   
   // Check to see if the minute hour and second are at the hour
-//  if (second() == 0 && minute() == 0 && !timeReset) {
-//    getCurrentTime();
-//    timeReset = true;
-//  }
-//
-//  if (second() == 1) {
-//    timeReset = false;  
-//  }
+  if (second() == 0 && minute() == 0 && !timeReset) {
+    getCurrentTime();
+    timeReset = true;
+  }
+
+  if (second() == 1) {
+    timeReset = false;  
+  }
 
   // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
   if (manualButton.isPressed()) {
@@ -175,16 +175,16 @@ void loop() {
       leds.setPixelColor(0, 0xFFFFFF); 
       leds.setBrightness(10);
       leds.show();
-      
      }
 
      if (wateringZone != lastWateringZone) {
        lcd.clear(); //Clear the display - this moves the cursor to home position as well
        lcd.print("System Ready...");
 
+       Serial.println("clearing in wateringZone != lastWateringZone");
+
        lastWateringZone = 0;
       }
-     
     
   } else if (wateringZone > 0) {
       // WATERING
@@ -207,6 +207,22 @@ void loop() {
                 wateringZone += 1;
                 endWatering();
                 watering();
+                
+              } else if (isAutomatic && wateringZone >= 2) {
+
+                endWatering();
+                isAutomatic = true;
+
+                leds.setPixelColor(0, 0x43FC18); 
+                leds.setBrightness(10);
+                leds.show();
+          
+                lcd.clear(); //Clear the display - this moves the cursor to home position as well
+                lcd.print("Watering will start at 9:00 PM");
+
+                lastWateringZone = wateringZone;
+                wateringZone = 0;
+                Serial.println("Setting back to auto state");
                 
               } else {
                 lcd.clear(); //Clear the display - this moves the cursor to home position as well
@@ -234,7 +250,6 @@ void loop() {
           Serial.println("Watering!");
           
           watering();
-
       } 
    }
 }
@@ -330,7 +345,7 @@ void getCurrentTime() {
   time_t epochTime = epoch;
 
   setTime(epochTime);
-  adjustTime(3600 * -8);
+  adjustTime(3600 * -7);
   
  }
 
