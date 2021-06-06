@@ -20,7 +20,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <SerLCD.h>
 #include <Wire.h>
-#include <Ethernet.h>
+//#include <Ethernet.h>
 
 #include "arduino_secrets.h"
 #define PIN 4
@@ -32,7 +32,7 @@ int status = WL_IDLE_STATUS;     // the WiFi radio's status
 unsigned long int secondsSinceProgramming;
 
 // ENV Vars
-int NUMBER_OF_WATERING_ZONES = 2;
+int NUMBER_OF_WATERING_ZONES = 3;
 int WATERING_TIME_MIN = 10;
 
 int wateringZone = 0;
@@ -54,7 +54,7 @@ bool autoTriggered = false;
 int zone1Pin = 10;
 int zone2Pin = 11;
 int zone3Pin = 12;
-int zone4Pin = 13;
+// int zone4Pin = 13;
 
 ezButton manualButton(7);
 ezButton autoButton(8);
