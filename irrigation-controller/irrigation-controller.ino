@@ -29,7 +29,7 @@
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
-unsigned long int secondsSinceProgramming;
+long int secondsSinceProgramming;
 
 // ENV Vars
 int NUMBER_OF_WATERING_ZONES = 3;
@@ -54,7 +54,7 @@ bool autoTriggered = false;
 int zone1Pin = 10;
 int zone2Pin = 11;
 int zone3Pin = 12;
-// int zone4Pin = 13;
+int zone4Pin = 13;
 
 ezButton manualButton(7);
 ezButton autoButton(8);
@@ -128,7 +128,7 @@ void loop() {
   // Whenever the button is pressed. Exit the current watering mode and go into programming mode.
   if (manualButton.isPressed()) {
     endWatering();
-    wateringZone >= 4 ? wateringZone = 1 : wateringZone += 1;
+    wateringZone >= 3 ? wateringZone = 1 : wateringZone += 1;
     secondsSinceProgramming = millis() / 1000;
     isAutomatic = false;
 
@@ -138,7 +138,7 @@ void loop() {
   }
 
   if (autoButton.isPressed()) {
-    isWatering = false;
+    endWatering();
 
     if (isAutomatic) {
       isAutomatic = false;  
@@ -255,11 +255,11 @@ void loop() {
       // leds.show();
     }
 
-    if (isWatering == false && secondsSinceProgramming && (millis() / 1000 ) - secondsSinceProgramming > 5) {
+    if (isWatering == false && secondsSinceProgramming != -1 && (millis() / 1000 ) - secondsSinceProgramming > 5) {
       Serial.print(millis() / 1000);
       Serial.print(" - ");
       Serial.println(secondsSinceProgramming);
-      secondsSinceProgramming = NULL;
+      secondsSinceProgramming = -1;
       Serial.println("Watering!");
         
       watering();
