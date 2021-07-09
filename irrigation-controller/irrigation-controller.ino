@@ -20,7 +20,6 @@
 #include <Adafruit_NeoPixel.h>
 #include <SerLCD.h>
 #include <Wire.h>
-//#include <Ethernet.h>
 
 #include "arduino_secrets.h"
 #define PIN 4
@@ -28,6 +27,7 @@
 
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
+WiFiServer server(80);
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 long int secondsSinceProgramming;
 
@@ -50,6 +50,7 @@ int lastSecond;
 int lastWatered;
 bool timeReset = false;
 bool autoTriggered = false;
+bool recievedRequest = false;
 
 int zone1Pin = 10;
 int zone2Pin = 11;
@@ -113,10 +114,67 @@ void setup() {
 void loop() {
   manualButton.loop();
   autoButton.loop();
+  WiFiClient client = server.available();
+  
+  if (client && !recievedRequest) {
+    Serial.println("new client");
+
+    String req = client.readStringUntil('\r');
+    client.flush();
+    client.stop();
+    Serial.println("client disconnected");
+
+    if (req.indexOf("/on") != -1) {
+      int posOfZone = req.indexOf("/on/") + 4;
+      String zone = req.substring(posOfZone, posOfZone + 1);
+      String runTime = req.substring(posOfZone + 2, req.indexOf("HTTP")); 
+      Serial.println("ON... TIME: " + runTime + " | Zone: " + zone);
+      endWatering();
+
+      wateringZone = zone.toInt();
+      WATERING_TIME_MIN = runTime.toInt();
+
+      watering();
+      
+    } else if (req.indexOf("/off")){
+      Serial.println("OFF");
+      isAutomatic = false;  
+//      wateringZone = 0;
+      endWatering();
+      
+    } else if (req.indexOf("/auto")) {
+      Serial.println("AUTO");
+      int posOfRuntime = req.indexOf("/auto/");
+      String runTime = req.substring(posOfRuntime + 6, req.indexOf("HTTP"));
+      endWatering();
+
+      isAutomatic = true;
+      WATERING_TIME_MIN = runTime.toInt();
+
+      leds.setPixelColor(0, 0x43FC18); 
+      leds.setBrightness(10);
+      leds.show();
+
+      lcd.clear(); //Clear the display - this moves the cursor to home position as well
+    }
+    recievedRequest = true;
+  }
+
+  delay(5);
+  recievedRequest = false;
+
+// Serial.print("DEBUGGING|| Zone: ");
+// Serial.print(wateringZone);
+// Serial.print(" | isWatering: ");
+// Serial.println(isWatering);
+
+  
   
   // Check to see if the minute hour and second are at the hour and reset the time accordingly
   // This aims to keep the time accurate because it will slowly fall behind
   if (second() == 0 && minute() == 0 && !timeReset) {
+    endWatering();
+    WATERING_TIME_MIN = 10;
     getCurrentTime();
     timeReset = true;
   }
@@ -152,9 +210,9 @@ void loop() {
       Serial.println("Automatic!");
 
       setLedColor(0, 0x43FC18);
-      // leds.setPixelColor(0, 0x43FC18); 
-      // leds.setBrightness(10);
-      // leds.show();
+//      leds.setPixelColor(0, 0x43FC18); 
+//      leds.setBrightness(10);
+//      leds.show();
 
       lcd.clear(); //Clear the display - this moves the cursor to home position as well
       lcd.print("Watering will start at 9:00 PM");
@@ -280,6 +338,8 @@ void endWatering() {
   digitalWrite(zone3Pin, HIGH);
   digitalWrite(zone4Pin, HIGH);
   isWatering = false;
+
+  wateringZone = 0;
 }
 
 void watering() {
@@ -287,7 +347,11 @@ void watering() {
   Serial.print("Watering zone: ");
   Serial.println(wateringZone);
 
-  endWatering();
+// TODO: Fix the weird situation here
+  if (wateringZone == 0) {
+    endWatering();
+  }
+  
   isWatering = true;
 
   // Set the starting and ending time for the timer
@@ -408,6 +472,9 @@ void connectToWifi() {
     
   // you're connected now, so print out the data:
   Serial.println("You're connected to the network");
+
+  Serial.println("Starting Server");
+  server.begin();
   printCurrentNet();
   printWiFiData();
 }
