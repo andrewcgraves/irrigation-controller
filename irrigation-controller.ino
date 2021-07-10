@@ -57,11 +57,6 @@ void setup() {
     endWatering();
     setLedColor(0xE34C00, 10);
     Serial.begin(9600);
-//    wifiClient = wifiServer.available();
-
-//    while (!Serial) {
-//        // wait for serial port to connect
-//    }
 
     connectToWifi();
     getCurrentTime();
@@ -74,10 +69,6 @@ void loop() {
     manualButton.loop();
     autoButton.loop();
     WiFiClient wifiClient = wifiServer.available();
-
-//    if (wifiClient) {
-//        Serial.println("New Client!!!");
-//    }
 
     // Check to see if the minute hour and second are at the hour and reset the time accordingly
     // This aims to keep the time accurate because it will slowly fall behind
@@ -140,12 +131,9 @@ void loop() {
             Serial.println("OFF");
             endWatering();
             triggerAuto(false);
-            // isAutomatic = false;  
 
         } else if (req.indexOf("/auto") != -1) {
             Serial.println("AUTO");
-//            int posOfRuntime = req.indexOf("/auto/");
-//            String runTime = req.substring(posOfRuntime + 6, req.indexOf("HTTP"));
             triggerAuto(true);
         }
 
