@@ -95,7 +95,7 @@ void loop() {
         endWatering();
         triggerAuto(false);
         isAutomatic = false;
-        lastZone >= 3 ? currentZone = 1 : currentZone = lastZone + 1;
+        lastZone >= NUMBER_OF_WATERING_ZONES ? currentZone = 1 : currentZone = lastZone + 1;
         setLedColor(0xFFFF00, 10);
         secondsSinceProgramming = millis() / 1000;
 
