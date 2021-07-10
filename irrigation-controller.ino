@@ -54,6 +54,7 @@ void setup() {
     pinMode(zone2Pin, OUTPUT);
     pinMode(zone3Pin, OUTPUT);
 
+    endWatering();
     setLedColor(0xE34C00, 10);
     Serial.begin(9600);
 //    wifiClient = wifiServer.available();
@@ -64,7 +65,6 @@ void setup() {
 
     connectToWifi();
     getCurrentTime();
-    endWatering();
     wifiServer.begin();
     Serial.println("Setup finished!");
     setLedColor(0xFFFFFF, 10);
@@ -95,7 +95,8 @@ void loop() {
         endWatering();
         triggerAuto(false);
         isAutomatic = false;
-        currentZone >= 3 ? currentZone = 1 : currentZone += 1;
+        lastZone >= 3 ? currentZone = 1 : currentZone = lastZone + 1;
+        setLedColor(0xFFFF00, 10);
         secondsSinceProgramming = millis() / 1000;
 
     } else if (autoButton.isPressed()) {
@@ -137,13 +138,15 @@ void loop() {
 
         } else if (req.indexOf("/off") != -1) {
             Serial.println("OFF");
+            endWatering();
             triggerAuto(false);
             // isAutomatic = false;  
 
         } else if (req.indexOf("/auto") != -1) {
             Serial.println("AUTO");
-            int posOfRuntime = req.indexOf("/auto/");
-            String runTime = req.substring(posOfRuntime + 6, req.indexOf("HTTP"));
+//            int posOfRuntime = req.indexOf("/auto/");
+//            String runTime = req.substring(posOfRuntime + 6, req.indexOf("HTTP"));
+            triggerAuto(true);
         }
 
     }
