@@ -12,15 +12,19 @@
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Network Config Information
-char ssid[] = SECRET_SSID;        // your network SSID (name)
-char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
-int WifiRadioStatus = WL_IDLE_STATUS;     // the WiFi radio's status
+char ssid[] = SECRET_SSID;               // your network SSID (name)
+char pass[] = SECRET_PASS;               // your network password (use for WPA, or use as key for WEP)
+int WifiRadioStatus = WL_IDLE_STATUS;    // the WiFi radio's status
 WiFiServer wifiServer(80);
 
 // Vars
-long WATERING_LENGTH_MIN = 10;
+int DEFAULT_WATERING_LENGTH_MIN = 10;
+int wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
 int NUMBER_OF_WATERING_ZONES = 3;
 long controllerStartTime;
+
+enum class TriggeredCause { Auto, Manual, Cascading };
+TriggeredCause trigger;
 
 long wateringStartTime;
 long wateringEndTime;
@@ -62,6 +66,7 @@ void setup() {
     getCurrentTime();
     wifiServer.begin();
     Serial.println("Setup finished!");
+    controllerStartTime = now();
     setLedColor(0xFFFFFF, 10);
 }
 
@@ -89,13 +94,13 @@ void loop() {
         lastZone >= NUMBER_OF_WATERING_ZONES ? currentZone = 1 : currentZone = lastZone + 1;
         setLedColor(0xFFFF00, 10);
         secondsSinceProgramming = millis() / 1000;
+        trigger = TriggeredCause::Manual;
 
     } else if (autoButton.isPressed()) {
         endWatering();
 
         if (isAutomatic) {
             triggerAuto(false);
-            // isAutomatic = false;
             Serial.println("Automatic off");
 
         } else {
@@ -108,6 +113,7 @@ void loop() {
         endWatering();
         currentZone = 1;
         triggerWatering();
+        trigger = TriggeredCause::Auto;
 
     } else if (wifiClient) {
         Serial.println("new client");
@@ -118,13 +124,23 @@ void loop() {
         Serial.println("client disconnected");
 
         if (req.indexOf("/on") != -1) {
+            endWatering();
             int posOfZone = req.indexOf("/on/") + 4;
             String zone = req.substring(posOfZone, posOfZone + 1);
             String runTime = req.substring(posOfZone + 2, req.indexOf("HTTP")); 
             Serial.println("ON... TIME: " + runTime + " | Zone: " + zone);
 
-            currentZone = zone.toInt();
-            WATERING_LENGTH_MIN = runTime.toInt();
+            if (zone.toInt() == 0) {
+                Serial.println("Triggered Cascading Watering!");
+                trigger = TriggeredCause::Cascading;
+                currentZone = 1;
+
+            } else {
+                trigger = TriggeredCause::Manual;
+                currentZone = zone.toInt();
+            }
+
+            wateringLengthMin = runTime.toInt();
             triggerWatering();
 
         } else if (req.indexOf("/off") != -1) {
@@ -135,14 +151,23 @@ void loop() {
         } else if (req.indexOf("/auto") != -1) {
             Serial.println("AUTO");
             triggerAuto(true);
-        }
 
+        } else if (req.indexOf("/setduration") != -1) {
+            Serial.println("SET DURATION");
+
+            int posOfDuration = req.indexOf("/setduration/") + 13;
+            String duration = req.substring(posOfDuration, req.indexOf("HTTP"));
+            DEFAULT_WATERING_LENGTH_MIN = duration.toInt();
+
+            Serial.print("set duration to: ");
+            Serial.println(duration);
+        }
     }
 
     // LOOPING THROUGH TO CHECK THE TIME
     if (isWatering && wateringEndTime <= now()) {
 
-        if (isAutomatic && currentZone < NUMBER_OF_WATERING_ZONES) {
+        if (( trigger == TriggeredCause::Cascading || isAutomatic ) && currentZone < NUMBER_OF_WATERING_ZONES) {
             Serial.println("Watering Next Zone");
             endWatering();
             currentZone = lastZone + 1;
@@ -150,10 +175,13 @@ void loop() {
 
         } else if (isAutomatic && currentZone >= NUMBER_OF_WATERING_ZONES) {
             endWatering();
+            setLedColor(0x00FFFF, 10);
             Serial.println("back to auto rest state");
         } else {
             endWatering();
+            wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
             Serial.println("done watering");
+            setLedColor(0xFFFFFF, 10);
         }
     }
 
@@ -179,7 +207,7 @@ void setLedColor(long hex, int intensity) {
 void triggerWatering() {
     isWatering = true;
     wateringStartTime = now();
-    wateringEndTime = now() + (WATERING_LENGTH_MIN * 60);
+    wateringEndTime = now() + (wateringLengthMin * 60);
 
     Serial.print("Watering Zone: ");
     Serial.println(currentZone);
@@ -216,9 +244,14 @@ void triggerAuto(bool state) {
 void endWatering() {
     lastZone = currentZone;
     lastWateringTime = now();
+
+    // Reset the timer to default if triggered manually
+    if (trigger == TriggeredCause::Manual) {
+        wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
+    }
+
     currentZone = 0;
     isWatering = false;
-    setLedColor(0xFFFFFF, 10);
 
     // Set all the zones to be off
     digitalWrite(zone1Pin, HIGH);

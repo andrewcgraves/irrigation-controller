@@ -1,0 +1,7 @@
+{
+    "configuration": "mode=on",
+    "board": "arduino:megaavr:uno2018",
+    "port": "COM3",
+    "programmer": "arduino:medbg",
+    "sketch": "irrigation-controller.ino"
+}
