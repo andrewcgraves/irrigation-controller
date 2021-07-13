@@ -21,7 +21,8 @@ WiFiServer wifiServer(80);
 int DEFAULT_WATERING_LENGTH_MIN = 10;
 int wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
 int NUMBER_OF_WATERING_ZONES = 3;
-long controllerStartTime;
+time_t controllerStartTime;
+time_t uptime;
 
 enum class TriggeredCause { Auto, Manual, Cascading };
 TriggeredCause trigger;
@@ -62,6 +63,10 @@ void setup() {
     setLedColor(0xE34C00, 10);
     Serial.begin(9600);
 
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
+
     connectToWifi();
     getCurrentTime();
     wifiServer.begin();
@@ -74,6 +79,8 @@ void loop() {
     manualButton.loop();
     autoButton.loop();
     WiFiClient wifiClient = wifiServer.available();
+    uptime = now() - controllerStartTime;
+
 
     // Check to see if the minute hour and second are at the hour and reset the time accordingly
     // This aims to keep the time accurate because it will slowly fall behind
@@ -117,9 +124,65 @@ void loop() {
 
     } else if (wifiClient) {
         Serial.println("new client");
-        String req = wifiClient.readStringUntil('\r');
+        boolean currentLineIsBlank = true;
+        String req;
 
-        wifiClient.flush();
+        while (wifiClient.connected()) {
+            if (wifiClient.available()) {
+                char c = wifiClient.read();
+                Serial.write(c);
+
+                if (c == '\n' && currentLineIsBlank) {
+                    // send a standard HTTP response header
+                    wifiClient.println("HTTP/1.1 200 OK");
+                    wifiClient.println("Content-Type: text/html");
+                    wifiClient.println("Connection: close");  // the connection will be closed after completion of the response
+                    wifiClient.println();
+                    wifiClient.println("<!DOCTYPE HTML>");
+                    wifiClient.println("<html>");
+
+                    wifiClient.println("<h> My Irrigation Controller!</h><br />");
+                    wifiClient.print("Uptime: ");
+                    wifiClient.print(hour(uptime));
+                    wifiClient.print(" : ");
+                    wifiClient.print(minute(uptime));
+                    wifiClient.print(" : ");
+                    wifiClient.println(second(uptime));
+
+                    wifiClient.print("<br />Watering: ");
+                    wifiClient.println(isWatering);
+
+                    if (isWatering) {
+                        wifiClient.print(" => Zone: ");
+                        wifiClient.println(currentZone);
+                    }
+                    
+                    wifiClient.print("<br />Automode: ");
+                    wifiClient.println(isAutomatic);
+                    wifiClient.println("<br />");
+
+                    wifiClient.println("</html>");
+                    break;
+                }
+
+                if (c == '\n') {
+                    // you're starting a new line
+                    currentLineIsBlank = true;
+                } else if (c != '\r') {
+                    // you've gotten a character on the current line
+                    currentLineIsBlank = false;
+                    req += c;
+                }
+            }
+        }
+
+        Serial.print("output");
+        Serial.println(req);
+
+        // Browser needs time to respond
+        delay(1);
+
+        // wifiClient.flush();
         wifiClient.stop();
         Serial.println("client disconnected");
 
@@ -175,7 +238,7 @@ void loop() {
 
         } else if (isAutomatic && currentZone >= NUMBER_OF_WATERING_ZONES) {
             endWatering();
-            setLedColor(0x00FFFF, 10);
+            setLedColor(0x00FF00, 10);
             Serial.println("back to auto rest state");
         } else {
             endWatering();
