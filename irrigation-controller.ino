@@ -35,9 +35,11 @@ long int secondsSinceProgramming = -1;
 bool isAutomatic;
 bool isWatering;
 bool timeReset = false;
+bool isConnecting = false;
 
 int lastZone;
 int currentZone;
+int triggerTime = 6;
 
 // Zone pins
 int zone1Pin = 10;
@@ -81,6 +83,10 @@ void loop() {
     WiFiClient wifiClient = wifiServer.available();
     uptime = now() - controllerStartTime;
 
+    // Connect to wifi if the connection drops
+    if (!isConnecting && second() == 0 && (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_CONNECTION_LOST)) {
+        connectToWifi();
+    }
 
     // Check to see if the minute hour and second are at the hour and reset the time accordingly
     // This aims to keep the time accurate because it will slowly fall behind
@@ -90,7 +96,7 @@ void loop() {
     }
 
     if (second() == 1) {
-      timeReset = false;
+        timeReset = false;
     }
 
     // TRIGGERING CHECKS
@@ -115,7 +121,7 @@ void loop() {
             Serial.println("Automatic on");
         }
 
-    } else if (second() == 0 && minute() == 0 && hour() == 21 && isAutomatic && !isWatering) {
+    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == 6 ) {
         Serial.println("Schedule triggered");
         endWatering();
         currentZone = 1;
@@ -155,12 +161,24 @@ void loop() {
                     if (isWatering) {
                         wifiClient.print(" => Zone: ");
                         wifiClient.println(currentZone);
+                        wifiClient.print("WATERING UNTIL: ");
+                        wifiClient.print(day(wateringEndTime));
+                        wifiClient.print(" : ");
+                        wifiClient.print(hour(wateringEndTime));
+                        wifiClient.print(" : ");
+                        wifiClient.print(minute(wateringEndTime));
+                        wifiClient.print(" : ");
+                        wifiClient.println(second(wateringEndTime));
                     }
                     
                     wifiClient.print("<br />Automode: ");
                     wifiClient.println(isAutomatic);
-                    wifiClient.println("<br />");
 
+                    if (isAutomatic) {
+                        wifiClient.print(" => Trigger time: ");
+                        wifiClient.println(triggerTime);
+                    }
+                    wifiClient.println("<br />");
                     wifiClient.println("</html>");
                     break;
                 }
@@ -215,6 +233,15 @@ void loop() {
             Serial.println("AUTO");
             triggerAuto(true);
 
+            if ((req.indexOf("/auto/") + 6 - req.indexOf("HTTP") + 4) != -1) {
+                Serial.println("Overriding auto");
+                int posOfTriggerTime = req.indexOf("/auto/") + 6;
+                triggerTime = req.substring(posOfTriggerTime, req.indexOf("HTTP")).toInt();
+            }
+
+            Serial.println(req.indexOf("/auto/"));
+            Serial.println(req.indexOf("HTTP"));
+
         } else if (req.indexOf("/setduration") != -1) {
             Serial.println("SET DURATION");
 
@@ -230,7 +257,7 @@ void loop() {
     // LOOPING THROUGH TO CHECK THE TIME
     if (isWatering && wateringEndTime <= now()) {
 
-        if (( trigger == TriggeredCause::Cascading || isAutomatic ) && currentZone < NUMBER_OF_WATERING_ZONES) {
+        if (((trigger == TriggeredCause::Cascading) || (isAutomatic && trigger == TriggeredCause::Auto)) && currentZone < NUMBER_OF_WATERING_ZONES) {
             Serial.println("Watering Next Zone");
             endWatering();
             currentZone = lastZone + 1;
@@ -346,12 +373,16 @@ void getCurrentTime() {
 // Wifi Connecting and debugging functions VVVVVVVVVV
 
 void connectToWifi() {
+    isConnecting = true;
+
     // check for the WiFi module:
     if (WiFi.status() == WL_NO_MODULE) {
         Serial.println("Communication with WiFi module failed!");
         // don't continue
         while (true);
     }
+
+    setLedColor(0xd71414, 10);
         
     // Check firmware
     String fv = WiFi.firmwareVersion();
@@ -369,10 +400,12 @@ void connectToWifi() {
         // wait 5 seconds for connection:
         delay(5000);
     }
-        
+
     // you're connected now, so print out the data:
     Serial.println("You're connected to the network");
+    isConnecting = false;
     printWiFiData();
+    setLedColor(0xFFFFFF, 10);
 }
 
 void printWiFiData() {
