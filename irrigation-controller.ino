@@ -149,6 +149,8 @@ void loop() {
 
                     wifiClient.println("<h> My Irrigation Controller!</h><br />");
                     wifiClient.print("Uptime: ");
+                    wifiClient.print(day(uptime));
+                    wifiClient.print(" : ");
                     wifiClient.print(hour(uptime));
                     wifiClient.print(" : ");
                     wifiClient.print(minute(uptime));
@@ -162,8 +164,6 @@ void loop() {
                         wifiClient.print(" => Zone: ");
                         wifiClient.println(currentZone);
                         wifiClient.print("WATERING UNTIL: ");
-                        wifiClient.print(day(wateringEndTime));
-                        wifiClient.print(" : ");
                         wifiClient.print(hour(wateringEndTime));
                         wifiClient.print(" : ");
                         wifiClient.print(minute(wateringEndTime));
