@@ -84,7 +84,8 @@ void loop() {
     uptime = now() - controllerStartTime;
 
     // Connect to wifi if the connection drops
-    if (!isConnecting && second() == 0 && (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_CONNECTION_LOST)) {
+    if (!isConnecting && second() == 0 && (WiFi.status() != WL_CONNECTED) && (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_CONNECTION_LOST)) {
+        isConnecting = true
         connectToWifi();
     }
 
@@ -405,7 +406,14 @@ void connectToWifi() {
     Serial.println("You're connected to the network");
     isConnecting = false;
     printWiFiData();
-    setLedColor(0xFFFFFF, 10);
+
+    if (isWatering) {
+        setLedColor(0x00FFFF, 10);
+    } else if (isAutomatic) {
+        setLedColor(0x00FF00, 10);
+    } else {
+        setLedColor(0xFFFFFF, 10);
+    }
 }
 
 void printWiFiData() {
