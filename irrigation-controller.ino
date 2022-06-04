@@ -3,6 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <TimeLib.h>
 #include <SPI.h>
+#include <pthread.h>
 
 #include "arduino_secrets.h"
 
@@ -84,8 +85,7 @@ void loop() {
     uptime = now() - controllerStartTime;
 
     // Connect to wifi if the connection drops
-    if (!isConnecting && second() == 0 && (WiFi.status() != WL_CONNECTED) && (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_CONNECTION_LOST)) {
-        isConnecting = true
+    if (!isConnecting && second() == 0 && (WiFi.status() != WL_CONNECTED)) {
         connectToWifi();
     }
 
@@ -122,7 +122,7 @@ void loop() {
             Serial.println("Automatic on");
         }
 
-    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == 6 ) {
+    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == triggerTime && ((day()%2) = 0) ) {
         Serial.println("Schedule triggered");
         endWatering();
         currentZone = 1;
