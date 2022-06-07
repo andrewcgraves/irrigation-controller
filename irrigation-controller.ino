@@ -3,7 +3,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <TimeLib.h>
 #include <SPI.h>
-#include <pthread.h>
+#include <PubSubClient.h>
+// #include <pthread.h>
 
 #include "arduino_secrets.h"
 
@@ -15,6 +16,8 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ
 // Network Config Information
 char ssid[] = SECRET_SSID;               // your network SSID (name)
 char pass[] = SECRET_PASS;               // your network password (use for WPA, or use as key for WEP)
+char brokerIP[] = SECRET_BROKER_IP;
+char brokerPort[] = SECRET_BROKER_PORT;
 int WifiRadioStatus = WL_IDLE_STATUS;    // the WiFi radio's status
 WiFiServer wifiServer(80);
 
@@ -32,6 +35,7 @@ long wateringStartTime;
 long wateringEndTime;
 long lastWateringTime;
 long int secondsSinceProgramming = -1;
+unsigned long lastMillis = 0;
 
 bool isAutomatic;
 bool isWatering;
@@ -52,6 +56,10 @@ int zone4Pin = 13;
 ezButton manualButton(7);
 ezButton autoButton(8);
 
+// MQTT things
+WiFiClient net;
+PubSubClient client(net);
+
 void setup() {
     leds.begin();
     manualButton.setDebounceTime(100);
@@ -71,8 +79,9 @@ void setup() {
     }
 
     connectToWifi();
+    client.setServer(SECRET_BROKER_IP, 1883);
+    client.setCallback(callback); 
     getCurrentTime();
-    wifiServer.begin();
     Serial.println("Setup finished!");
     controllerStartTime = now();
     setLedColor(0xFFFFFF, 10);
@@ -81,13 +90,19 @@ void setup() {
 void loop() {
     manualButton.loop();
     autoButton.loop();
-    WiFiClient wifiClient = wifiServer.available();
     uptime = now() - controllerStartTime;
 
     // Connect to wifi if the connection drops
     if (!isConnecting && second() == 0 && (WiFi.status() != WL_CONNECTED)) {
         connectToWifi();
     }
+
+    // check the mqtt connection
+    if (!client.connected()) {
+        reconnect();
+    }
+
+    client.loop();
 
     // Check to see if the minute hour and second are at the hour and reset the time accordingly
     // This aims to keep the time accurate because it will slowly fall behind
@@ -122,137 +137,12 @@ void loop() {
             Serial.println("Automatic on");
         }
 
-    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == triggerTime && ((day()%2) = 0) ) {
+    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == triggerTime && ((day()%2) == 0) ) {
         Serial.println("Schedule triggered");
         endWatering();
         currentZone = 1;
         triggerWatering();
         trigger = TriggeredCause::Auto;
-
-    } else if (wifiClient) {
-        Serial.println("new client");
-        boolean currentLineIsBlank = true;
-        String req;
-
-        while (wifiClient.connected()) {
-            if (wifiClient.available()) {
-                char c = wifiClient.read();
-                Serial.write(c);
-
-                if (c == '\n' && currentLineIsBlank) {
-                    // send a standard HTTP response header
-                    wifiClient.println("HTTP/1.1 200 OK");
-                    wifiClient.println("Content-Type: text/html");
-                    wifiClient.println("Connection: close");  // the connection will be closed after completion of the response
-                    wifiClient.println();
-                    wifiClient.println("<!DOCTYPE HTML>");
-                    wifiClient.println("<html>");
-
-                    wifiClient.println("<h> My Irrigation Controller!</h><br />");
-                    wifiClient.print("Uptime: ");
-                    wifiClient.print(day(uptime));
-                    wifiClient.print(" : ");
-                    wifiClient.print(hour(uptime));
-                    wifiClient.print(" : ");
-                    wifiClient.print(minute(uptime));
-                    wifiClient.print(" : ");
-                    wifiClient.println(second(uptime));
-
-                    wifiClient.print("<br />Watering: ");
-                    wifiClient.println(isWatering);
-
-                    if (isWatering) {
-                        wifiClient.print(" => Zone: ");
-                        wifiClient.println(currentZone);
-                        wifiClient.print("WATERING UNTIL: ");
-                        wifiClient.print(hour(wateringEndTime));
-                        wifiClient.print(" : ");
-                        wifiClient.print(minute(wateringEndTime));
-                        wifiClient.print(" : ");
-                        wifiClient.println(second(wateringEndTime));
-                    }
-                    
-                    wifiClient.print("<br />Automode: ");
-                    wifiClient.println(isAutomatic);
-
-                    if (isAutomatic) {
-                        wifiClient.print(" => Trigger time: ");
-                        wifiClient.println(triggerTime);
-                    }
-                    wifiClient.println("<br />");
-                    wifiClient.println("</html>");
-                    break;
-                }
-
-                if (c == '\n') {
-                    // you're starting a new line
-                    currentLineIsBlank = true;
-                } else if (c != '\r') {
-                    // you've gotten a character on the current line
-                    currentLineIsBlank = false;
-                    req += c;
-                }
-            }
-        }
-
-        Serial.print("output");
-        Serial.println(req);
-
-        // Browser needs time to respond
-        delay(1);
-
-        // wifiClient.flush();
-        wifiClient.stop();
-        Serial.println("client disconnected");
-
-        if (req.indexOf("/on") != -1) {
-            endWatering();
-            int posOfZone = req.indexOf("/on/") + 4;
-            String zone = req.substring(posOfZone, posOfZone + 1);
-            String runTime = req.substring(posOfZone + 2, req.indexOf("HTTP")); 
-            Serial.println("ON... TIME: " + runTime + " | Zone: " + zone);
-
-            if (zone.toInt() == 0) {
-                Serial.println("Triggered Cascading Watering!");
-                trigger = TriggeredCause::Cascading;
-                currentZone = 1;
-
-            } else {
-                trigger = TriggeredCause::Manual;
-                currentZone = zone.toInt();
-            }
-
-            wateringLengthMin = runTime.toInt();
-            triggerWatering();
-
-        } else if (req.indexOf("/off") != -1) {
-            Serial.println("OFF");
-            endWatering();
-            triggerAuto(false);
-
-        } else if (req.indexOf("/auto") != -1) {
-            Serial.println("AUTO");
-            triggerAuto(true);
-
-            if ((req.indexOf("/auto/") + 6 - req.indexOf("HTTP") + 4) != -1) {
-                Serial.println("Overriding auto");
-                int posOfTriggerTime = req.indexOf("/auto/") + 6;
-                triggerTime = req.substring(posOfTriggerTime, req.indexOf("HTTP")).toInt();
-            }
-
-            Serial.println(req.indexOf("/auto/"));
-            Serial.println(req.indexOf("HTTP"));
-
-        } else if (req.indexOf("/setduration") != -1) {
-            Serial.println("SET DURATION");
-
-            int posOfDuration = req.indexOf("/setduration/") + 13;
-            String duration = req.substring(posOfDuration, req.indexOf("HTTP"));
-            DEFAULT_WATERING_LENGTH_MIN = duration.toInt();
-
-            Serial.print("set duration to: ");
-            Serial.println(duration);
-        }
     }
 
     // LOOPING THROUGH TO CHECK THE TIME
@@ -291,6 +181,49 @@ void setLedColor(long hex, int intensity) {
     leds.setPixelColor(0, hex); 
     leds.setBrightness(10);
     leds.show();
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
+    for (int i=0;i<length;i++) {
+        Serial.print((char)payload[i]);
+    }
+    Serial.println();
+
+    // Todo - convert this to something that can be extended
+    // if (topic == "sprinkler/zone1") {
+        
+    // } else if (topic == "sprinkler/zone2") {
+
+    // } else if (topic == "sprinkler/zone3") {
+
+    // }
+    
+
+    client.publish("ret", topic);
+}
+
+void reconnect() {
+    // Loop until we're reconnected
+    while (!client.connected()) {
+        Serial.print("Attempting MQTT connection...");
+        // Attempt to connect
+        if (client.connect("core-mosquitto")) {
+            Serial.println("connected");
+            // Once connected, publish an announcement...
+            client.publish("outTopic","hello world");
+            // ... and resubscribe
+            client.subscribe("spinkler/#");
+        } else {
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            Serial.println(" try again in 5 seconds");
+            // Wait 5 seconds before retrying
+            delay(5000);
+        }
+    }
 }
 
 // WATERING FUNCTIONS
