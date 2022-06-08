@@ -22,6 +22,7 @@ int WifiRadioStatus = WL_IDLE_STATUS;    // the WiFi radio's status
 WiFiServer wifiServer(80);
 
 // Vars
+int MAX_WATERING_LENGTH = 20;
 int DEFAULT_WATERING_LENGTH_MIN = 10;
 int wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
 int NUMBER_OF_WATERING_ZONES = 3;
@@ -184,25 +185,72 @@ void setLedColor(long hex, int intensity) {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
+    String charPayload;
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
     for (int i=0;i<length;i++) {
+        charPayload += (char)payload[i];
         Serial.print((char)payload[i]);
     }
-    Serial.println();
+    Serial.println("");
 
-    // Todo - convert this to something that can be extended
-    // if (topic == "sprinkler/zone1") {
+    // The only commands that should pass through here should be preceded with "sprinkler/..."
+    // Calls can take the following formats
+    // {on/off}/{zones}
+    // {auto/set_schedule} (set_schedule=data would be a schedule based like the following) DATA={1(0,0,0,0,0,0,0), 2(0,0,0,0,0,0,0), etc...} where each zone has a weekly schedule
+
+    char* tokens[10];
+    char* result = strtok(topic, "/");
+    int c = 0;
+
+    while (result != NULL) {
+        tokens[c] = result;
+        result = strtok(NULL, "/");
+        c++;
+    }
+
+    if (strcmp("on", tokens[1]) == 0) {
+        Serial.println("Switching on...");
+        client.publish("ret", payload, length);
+
+        int wateringTime = charPayload.toInt();
+        int wateringZone;
+        sscanf(tokens[2], "%d", &wateringZone);
         
-    // } else if (topic == "sprinkler/zone2") {
+        if (wateringZone <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
+            // Now we trigger the sprinkler system
+            // TODO: Adjust the next zone watering to be a queue.
+            currentZone = wateringZone;
+            wateringLengthMin = wateringTime;
+            trigger = TriggeredCause::Manual;
+            triggerWatering();
 
-    // } else if (topic == "sprinkler/zone3") {
+        } else {
+            Serial.println("Invalid Input. Zone must be <= " + NUMBER_OF_WATERING_ZONES);
+            Serial.print("and Time must be <= " + MAX_WATERING_LENGTH);
+        }
 
-    // }
+    } else if (strcmp("off", tokens[1]) == 0) {
+        Serial.println("Switching off...");
+        currentZone = 0;
+        wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
+        endWatering();
+
+    } else if (strcmp("auto", tokens[1]) == 0) {
+        Serial.println("Switching to auto...");
+        currentZone = 1;
+        triggerAuto(true);
+
+    } else if (strcmp("set_schedule", tokens[1]) == 0) {
+        // TODO - to implement
+    } else {
+        // should never arrive here...
+        Serial.println("FORBIDDEN");
+    }
     
-
-    client.publish("ret", topic);
+    // For testing...
+    // client.publish("ret", topic);
 }
 
 void reconnect() {
@@ -212,10 +260,8 @@ void reconnect() {
         // Attempt to connect
         if (client.connect("core-mosquitto")) {
             Serial.println("connected");
-            // Once connected, publish an announcement...
-            client.publish("outTopic","hello world");
-            // ... and resubscribe
-            client.subscribe("spinkler/#");
+            // subscribe to a topic
+            client.subscribe("sprinkler/#");
         } else {
             Serial.print("failed, rc=");
             Serial.print(client.state());
@@ -266,6 +312,7 @@ void triggerAuto(bool state) {
 }
 
 void endWatering() {
+    setLedColor(0x00FF00, 10);
     lastZone = currentZone;
     lastWateringTime = now();
 
