@@ -6,6 +6,7 @@
 #include <PubSubClient.h>
 // #include <pthread.h>
 
+// Import unique information and secrets
 #include "arduino_secrets.h"
 
 // Led Config Stuff
@@ -20,6 +21,20 @@ char brokerIP[] = SECRET_BROKER_IP;
 char brokerPort[] = SECRET_BROKER_PORT;
 int WifiRadioStatus = WL_IDLE_STATUS;    // the WiFi radio's status
 WiFiServer wifiServer(80);
+
+// Zone pins
+int zone1Pin = 10;
+int zone2Pin = 11;
+int zone3Pin = 12;
+int zone4Pin = 13;
+
+// Setup for Buttons
+ezButton manualButton(7);
+ezButton autoButton(8);
+
+// MQTT things
+WiFiClient net;
+PubSubClient client(net);
 
 // Vars
 int MAX_WATERING_LENGTH = 20;
@@ -38,28 +53,19 @@ long lastWateringTime;
 long int secondsSinceProgramming = -1;
 unsigned long lastMillis = 0;
 
-bool isAutomatic;
-bool isWatering;
+// bool isAutomatic;
+// bool isWatering;
 bool timeReset = false;
 bool isConnecting = false;
 
-int lastZone;
-int currentZone;
-int triggerTime = 6;
+// int lastZone;
+// int currentZone;
+// int triggerTime = 6;
 
-// Zone pins
-int zone1Pin = 10;
-int zone2Pin = 11;
-int zone3Pin = 12;
-int zone4Pin = 13;
+// int selectingLastZone;
+int selectingCurrentZone;
 
-// Setup for Buttons
-ezButton manualButton(7);
-ezButton autoButton(8);
-
-// MQTT things
-WiFiClient net;
-PubSubClient client(net);
+int zonesToWater[6];
 
 void setup() {
     leds.begin();
@@ -72,7 +78,7 @@ void setup() {
     pinMode(zone3Pin, OUTPUT);
 
     endWatering();
-    setLedColor(0xE34C00, 10);
+    // setLedColor(0xE34C00, 10);
     Serial.begin(9600);
 
     while (!Serial) {
@@ -85,7 +91,6 @@ void setup() {
     getCurrentTime();
     Serial.println("Setup finished!");
     controllerStartTime = now();
-    setLedColor(0xFFFFFF, 10);
 }
 
 void loop() {
@@ -119,58 +124,38 @@ void loop() {
     // TRIGGERING CHECKS
     if (manualButton.isPressed()) {
         endWatering();
-        triggerAuto(false);
-        isAutomatic = false;
-        lastZone >= NUMBER_OF_WATERING_ZONES ? currentZone = 1 : currentZone = lastZone + 1;
-        setLedColor(0xFFFF00, 10);
+        // triggerAuto(false);
+        // isAutomatic = false;
+        selectingCurrentZone >= NUMBER_OF_WATERING_ZONES ? selectingCurrentZone = 1 : selectingCurrentZone++;
+        // lastZone >= NUMBER_OF_WATERING_ZONES ? currentZone = 1 : currentZone = lastZone + 1;
         secondsSinceProgramming = millis() / 1000;
-        trigger = TriggeredCause::Manual;
+        // trigger = TriggeredCause::Manual;
 
-    } else if (autoButton.isPressed()) {
-        endWatering();
-
-        if (isAutomatic) {
-            triggerAuto(false);
-            Serial.println("Automatic off");
-
-        } else {
-            triggerAuto(true);
-            Serial.println("Automatic on");
-        }
-
-    } else if (isAutomatic && !isWatering && second() == 0 && minute() == 0 && hour() == triggerTime && ((day()%2) == 0) ) {
-        Serial.println("Schedule triggered");
-        endWatering();
-        currentZone = 1;
-        triggerWatering();
-        trigger = TriggeredCause::Auto;
     }
 
     // LOOPING THROUGH TO CHECK THE TIME
-    if (isWatering && wateringEndTime <= now()) {
+    if (zonesToWater[0] != 0 && wateringEndTime <= now()) {
 
-        if (((trigger == TriggeredCause::Cascading) || (isAutomatic && trigger == TriggeredCause::Auto)) && currentZone < NUMBER_OF_WATERING_ZONES) {
-            Serial.println("Watering Next Zone");
-            endWatering();
-            currentZone = lastZone + 1;
-            triggerWatering();
+        // TODO: This may not be needed. I think its hitting it every time
+        // watering is done, so cycle through the zones and set the watering to be the next zone
+        endWatering();
+        cycleArrayItems(zonesToWater);
 
-        } else if (isAutomatic && currentZone >= NUMBER_OF_WATERING_ZONES) {
-            endWatering();
-            setLedColor(0x00FF00, 10);
-            Serial.println("back to auto rest state");
+        if(zonesToWater[0] != 0) {
+            Serial.println("Next Zone: " + zonesToWater[0]);
+            startWatering(zonesToWater[0]);
+
         } else {
-            endWatering();
+            // watering is done
+            Serial.println("Watering is done.");
             wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
-            Serial.println("done watering");
-            setLedColor(0xFFFFFF, 10);
         }
     }
 
-    if (isWatering == false && secondsSinceProgramming != -1 && (millis() / 1000 ) - secondsSinceProgramming > 5) {
+    if (zonesToWater[0] != 0 && secondsSinceProgramming != -1 && (millis() / 1000 ) - secondsSinceProgramming > 5) {
         secondsSinceProgramming = -1;
-        Serial.println("Watering!");
-        triggerWatering();
+        zonesToWater[0] = selectingCurrentZone;
+        startWatering(zonesToWater[0]);
     }
 }
 
@@ -178,12 +163,42 @@ void loop() {
 // HELPER FUNCTIONS
 // -------------------------------------------------------------------------
 
+// Sets the LED color of connected RGB LED
 void setLedColor(long hex, int intensity) {
     leds.setPixelColor(0, hex); 
     leds.setBrightness(10);
     leds.show();
 }
 
+// Fills an int array with 0
+void clearIntArray(int array[]) {
+    int arraySize = sizeof(array)/sizeof(array[0]);
+    if (arraySize > 1) {
+        for (size_t i = 0; i < arraySize; i++) {
+            array[i] = 0;
+        }
+    }
+}
+
+// TODO: redo the queuing here.
+
+template <typename T>
+// Move all array items up a position, get rid of the first one.
+void cycleArrayItems(T array[]) {
+    int arraySize = sizeof(array)/sizeof(array[0]);
+    if (arraySize > 1) {
+        for (size_t i = 0; i < arraySize; i++) {
+            array[i] = array[i+1];
+            // memcpy(array[i], array[i+1], sizeof(array[i+1]));
+        }
+        array[arraySize-1] = 0;
+    } else {
+        array[0] = 0;
+        return;
+    }
+}
+
+// Called whenever an MQTT message is recieved to any topic we are listening to
 void callback(char* topic, byte* payload, unsigned int length) {
     String charPayload;
     Serial.print("Message arrived [");
@@ -206,25 +221,44 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     while (result != NULL) {
         tokens[c] = result;
+        // Serial.println("Parsing token: ");
+        // Serial.print(tokens[c]);
+        // Serial.print("\n");
         result = strtok(NULL, "/");
         c++;
     }
+
+    Serial.print("\n");
 
     if (strcmp("on", tokens[1]) == 0) {
         Serial.println("Switching on...");
         client.publish("ret", payload, length);
 
+        // char* tokens2[NUMBER_OF_WATERING_ZONES];
+        char* result2 = strtok(tokens[2], ",");
+        c = 0;
+
+        while (result2 != NULL) {
+            // tokens2[c] = result2;
+            zonesToWater[c] = atol(result2);
+            Serial.println("Parsing token: ");
+            Serial.print(zonesToWater[c]);
+            Serial.print("\n");
+            result2 = strtok(NULL, ",");
+            c++;
+        }
+
         int wateringTime = charPayload.toInt();
-        int wateringZone;
-        sscanf(tokens[2], "%d", &wateringZone);
+        char* wateringZones;
         
-        if (wateringZone <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
+        if (zonesToWater[0] <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
             // Now we trigger the sprinkler system
-            // TODO: Adjust the next zone watering to be a queue.
-            currentZone = wateringZone;
+
+            // currentZone = wateringZone;
             wateringLengthMin = wateringTime;
             trigger = TriggeredCause::Manual;
-            triggerWatering();
+            startWatering(zonesToWater[0]);
+            // triggerWatering();
 
         } else {
             Serial.println("Invalid Input. Zone must be <= " + NUMBER_OF_WATERING_ZONES);
@@ -233,17 +267,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     } else if (strcmp("off", tokens[1]) == 0) {
         Serial.println("Switching off...");
-        currentZone = 0;
+        // currentZone = 0;
+
         wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
         endWatering();
 
     } else if (strcmp("auto", tokens[1]) == 0) {
         Serial.println("Switching to auto...");
-        currentZone = 1;
-        triggerAuto(true);
+        // currentZone = 1;
+        // triggerAuto(true);
 
     } else if (strcmp("set_schedule", tokens[1]) == 0) {
         // TODO - to implement
+        
     } else {
         // should never arrive here...
         Serial.println("FORBIDDEN");
@@ -271,27 +307,27 @@ void reconnect() {
         }
     }
 }
-
+// --------------------------------------------------------
 // WATERING FUNCTIONS
+// --------------------------------------------------------
 
-void triggerWatering() {
-    isWatering = true;
+// Triggers the watering of a specified zone
+void startWatering(int toWater) {
+    setLedColor(0x00FFFF, 10);
     wateringStartTime = now();
     wateringEndTime = now() + (wateringLengthMin * 60);
 
-    Serial.print("Watering Zone: ");
-    Serial.println(currentZone);
-
-    setLedColor(0x00FFFF, 10);
-
-    switch (currentZone) {
+    switch (toWater) {
         case 1: 
+            Serial.println("Watering 1");
             digitalWrite(zone1Pin, LOW);
             break;
         case 2:
+            Serial.println("Watering 2");
             digitalWrite(zone2Pin, LOW);
             break;
         case 3:
+            Serial.println("Watering 3");
             digitalWrite(zone3Pin, LOW);
             break;
         default:
@@ -300,35 +336,18 @@ void triggerWatering() {
     }
 }
 
-void triggerAuto(bool state) {
-
-    if (state) {
-        setLedColor(0x00FF00, 10);
-    } else {
-        setLedColor(0xFFFFFF, 10);
-    }
-
-    isAutomatic = state;
-}
-
 void endWatering() {
-    setLedColor(0x00FF00, 10);
-    lastZone = currentZone;
-    lastWateringTime = now();
+    // set the color
+    setLedColor(0xffffff, 10);
 
-    // Reset the timer to default if triggered manually
-    if (trigger == TriggeredCause::Manual) {
-        wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
-    }
-
-    currentZone = 0;
-    isWatering = false;
-
-    // Set all the zones to be off
+    // clear all the valves 
     digitalWrite(zone1Pin, HIGH);
     digitalWrite(zone2Pin, HIGH);
     digitalWrite(zone3Pin, HIGH);
     digitalWrite(zone4Pin, HIGH);
+    // Serial.println("Ending Watering...");
+
+    lastWateringTime = now();
 }
 
 // TIME GATHERING 
@@ -363,6 +382,7 @@ void connectToWifi() {
         while (true);
     }
 
+    // Red loading color
     setLedColor(0xd71414, 10);
         
     // Check firmware
@@ -387,13 +407,7 @@ void connectToWifi() {
     isConnecting = false;
     printWiFiData();
 
-    if (isWatering) {
-        setLedColor(0x00FFFF, 10);
-    } else if (isAutomatic) {
-        setLedColor(0x00FF00, 10);
-    } else {
-        setLedColor(0xFFFFFF, 10);
-    }
+    setLedColor(0xFFFFFF, 10);
 }
 
 void printWiFiData() {
