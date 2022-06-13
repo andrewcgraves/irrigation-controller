@@ -14,6 +14,8 @@ It's a pretty simple system and i've tried keeping it organised but heres a quic
   - ~~`sprinkler/auto` - In Development~~
   - ~~`sprinkler/set_schedule` - In Development~~
 
+*`auto` and `set_schedule` will come later in development. I currently use Home Assistant to manage automation. I cover this more in detail in the [**Additional Information Section**](#additional-information)*
+
 ---
 
 ## Setup
@@ -31,4 +33,29 @@ It's a pretty simple system and i've tried keeping it organised but heres a quic
   - changing pin numbers for different configurations
 
 -----
+
+## Additional Information
+I use [Home Assistant](https://www.home-assistant.io/) with the [MQTT Plugin](https://www.home-assistant.io/integrations/mqtt/) to trigger this sprinkler system. This allows me to create a "smarter" system with more data to work with. For example, I can create an [Automation](https://www.home-assistant.io/docs/automation/) that checks the weather before deciding to trigger the watering or not.
+
+Below is a sample automation you can use if you wanted to also trigger this system with Home Assistant.
+
+```
+- id: {ID}
+  alias: Sprinkler Trigger
+  description: an automation that is responsible for managing the sprinkler timers.
+  trigger:
+  - platform: time
+    at: 06:00:00
+  condition:
+  - condition: time
+    weekday:
+    - sun
+  action:
+  - service: mqtt.publish
+    data:
+      topic: {TOPIC_NAME}
+      payload: {DURATION}
+  mode: single
+```
+
 *This is a current project so I will be updating it along the way. There may be things I missed in this README but i'll respond to any questions thrown my way :)*

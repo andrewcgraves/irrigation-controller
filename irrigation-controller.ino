@@ -225,12 +225,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
         Serial.println("Switching on...");
         client.publish("ret", payload, length);
 
-        // char* tokens2[NUMBER_OF_WATERING_ZONES];
         char* result2 = strtok(tokens[2], ",");
         c = 0;
 
         while (result2 != NULL) {
-            // tokens2[c] = result2;
             zonesToWater[c] = atol(result2);
             result2 = strtok(NULL, ",");
             c++;
