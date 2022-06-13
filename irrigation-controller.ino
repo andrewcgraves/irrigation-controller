@@ -53,16 +53,9 @@ long lastWateringTime;
 long int secondsSinceProgramming = -1;
 unsigned long lastMillis = 0;
 
-// bool isAutomatic;
-// bool isWatering;
 bool timeReset = false;
 bool isConnecting = false;
 
-// int lastZone;
-// int currentZone;
-// int triggerTime = 6;
-
-// int selectingLastZone;
 int selectingCurrentZone;
 
 int zonesToWater[6];
@@ -124,13 +117,8 @@ void loop() {
     // TRIGGERING CHECKS
     if (manualButton.isPressed()) {
         endWatering();
-        // triggerAuto(false);
-        // isAutomatic = false;
         selectingCurrentZone >= NUMBER_OF_WATERING_ZONES ? selectingCurrentZone = 1 : selectingCurrentZone++;
-        // lastZone >= NUMBER_OF_WATERING_ZONES ? currentZone = 1 : currentZone = lastZone + 1;
         secondsSinceProgramming = millis() / 1000;
-        // trigger = TriggeredCause::Manual;
-
     }
 
     // LOOPING THROUGH TO CHECK THE TIME
@@ -142,7 +130,6 @@ void loop() {
         cycleArrayItems(zonesToWater);
 
         if(zonesToWater[0] != 0) {
-            Serial.println("Next Zone: " + zonesToWater[0]);
             startWatering(zonesToWater[0]);
 
         } else {
@@ -180,16 +167,23 @@ void clearIntArray(int array[]) {
     }
 }
 
-// TODO: redo the queuing here.
+// TODO: redo the queuing here using Linked Lists.
+void cycleArrayItems(int array[]) {
+    int arraySize = 1;
 
-template <typename T>
-// Move all array items up a position, get rid of the first one.
-void cycleArrayItems(T array[]) {
-    int arraySize = sizeof(array)/sizeof(array[0]);
+    while (array[arraySize-1] != NULL) {
+        arraySize++;
+    }
+
     if (arraySize > 1) {
         for (size_t i = 0; i < arraySize; i++) {
-            array[i] = array[i+1];
-            // memcpy(array[i], array[i+1], sizeof(array[i+1]));
+            if (array[i] != 0) {
+                array[i] = array[i+1];
+            } else {
+                if (i > 0) {
+                    array[i-1] = 0;
+                }
+            }
         }
         array[arraySize-1] = 0;
     } else {
@@ -221,9 +215,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     while (result != NULL) {
         tokens[c] = result;
-        // Serial.println("Parsing token: ");
-        // Serial.print(tokens[c]);
-        // Serial.print("\n");
         result = strtok(NULL, "/");
         c++;
     }
@@ -241,9 +232,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
         while (result2 != NULL) {
             // tokens2[c] = result2;
             zonesToWater[c] = atol(result2);
-            Serial.println("Parsing token: ");
-            Serial.print(zonesToWater[c]);
-            Serial.print("\n");
             result2 = strtok(NULL, ",");
             c++;
         }
@@ -254,11 +242,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
         if (zonesToWater[0] <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
             // Now we trigger the sprinkler system
 
-            // currentZone = wateringZone;
-            wateringLengthMin = wateringTime;
+            wateringTime < 1 ? wateringLengthMin = 0.1 : wateringLengthMin = wateringTime;
+
             trigger = TriggeredCause::Manual;
             startWatering(zonesToWater[0]);
-            // triggerWatering();
 
         } else {
             Serial.println("Invalid Input. Zone must be <= " + NUMBER_OF_WATERING_ZONES);
@@ -267,15 +254,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     } else if (strcmp("off", tokens[1]) == 0) {
         Serial.println("Switching off...");
-        // currentZone = 0;
 
         wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
         endWatering();
 
     } else if (strcmp("auto", tokens[1]) == 0) {
         Serial.println("Switching to auto...");
-        // currentZone = 1;
-        // triggerAuto(true);
 
     } else if (strcmp("set_schedule", tokens[1]) == 0) {
         // TODO - to implement
@@ -284,9 +268,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
         // should never arrive here...
         Serial.println("FORBIDDEN");
     }
-    
-    // For testing...
-    // client.publish("ret", topic);
 }
 
 void reconnect() {
@@ -345,7 +326,6 @@ void endWatering() {
     digitalWrite(zone2Pin, HIGH);
     digitalWrite(zone3Pin, HIGH);
     digitalWrite(zone4Pin, HIGH);
-    // Serial.println("Ending Watering...");
 
     lastWateringTime = now();
 }
