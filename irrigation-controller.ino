@@ -58,7 +58,19 @@ bool isConnecting = false;
 
 int selectingCurrentZone;
 
+// TODO: To implement
+// struct WateringZoneLinkedList {
+//     int zone;
+//     WateringZoneLinkedList *nextZone;
+// };
+
+// WateringZoneLinkedList nextZone;
+
 int zonesToWater[6];
+
+/* ===========
+SETUP FUNCTION
+============== */
 
 void setup() {
     leds.begin();
@@ -135,6 +147,7 @@ void loop() {
         } else {
             // watering is done
             Serial.println("Watering is done.");
+            client.publish("info/wateringStatus: ", "on", size_t("on"));
             wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
         }
     }
@@ -223,7 +236,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     if (strcmp("on", tokens[1]) == 0) {
         Serial.println("Switching on...");
-        client.publish("ret", payload, length);
+        //client.publish("ret", payload, length);
 
         char* result2 = strtok(tokens[2], ",");
         c = 0;
@@ -295,6 +308,7 @@ void startWatering(int toWater) {
     setLedColor(0x00FFFF, 10);
     wateringStartTime = now();
     wateringEndTime = now() + (wateringLengthMin * 60);
+    client.publish("info/wateringStatus: ", "on", size_t("on"));
 
     switch (toWater) {
         case 1: 
