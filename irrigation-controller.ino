@@ -1,3 +1,8 @@
+/* ===========
+Project: Arduino Sprinkler Controller
+Author: Andrew Graves
+============== */
+
 #include <WiFiNINA.h>
 #include <ezButton.h>
 #include <Adafruit_NeoPixel.h>
@@ -36,19 +41,21 @@ ezButton autoButton(8);
 WiFiClient net;
 PubSubClient client(net);
 
-// Vars
+// Constants
 int MAX_WATERING_LENGTH = 20;
 int DEFAULT_WATERING_LENGTH_MIN = 10;
 int wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
 int NUMBER_OF_WATERING_ZONES = 3;
-time_t controllerStartTime;
-time_t uptime;
 
+// Keeping track of what triggered the sprinkler
 enum class TriggeredCause { Auto, Manual, Cascading };
 TriggeredCause trigger;
 
+// Variables
+time_t controllerStartTime;
+time_t uptime;
 long wateringStartTime;
-long wateringEndTime;
+long wateringEndTime = -1;
 long lastWateringTime;
 long int secondsSinceProgramming = -1;
 unsigned long lastMillis = 0;
@@ -58,19 +65,18 @@ bool isConnecting = false;
 
 int selectingCurrentZone;
 
-// TODO: To implement
-// struct WateringZoneLinkedList {
-//     int zone;
-//     WateringZoneLinkedList *nextZone;
-// };
-
-// WateringZoneLinkedList nextZone;
+// Handeling the Queue of zones
+struct WateringZoneLinkedList {
+    int zone;
+    WateringZoneLinkedList *next;
+};
 
 int zonesToWater[6];
+WateringZoneLinkedList *nextZone = NULL;
 
-/* ===========
-SETUP FUNCTION
-============== */
+/* ===================================
+ARDUINO SETUP FUNCTION
+====================================== */
 
 void setup() {
     leds.begin();
@@ -98,6 +104,10 @@ void setup() {
     controllerStartTime = now();
 }
 
+/* ===================================
+ARDUINO LOOP FUNCTION
+====================================== */
+
 void loop() {
     manualButton.loop();
     autoButton.loop();
@@ -115,7 +125,6 @@ void loop() {
 
     client.loop();
 
-    // Check to see if the minute hour and second are at the hour and reset the time accordingly
     // This aims to keep the time accurate because it will slowly fall behind
     if (second() == 0 && minute() == 0 && !timeReset) {
         getCurrentTime();
@@ -134,6 +143,7 @@ void loop() {
     }
 
     // LOOPING THROUGH TO CHECK THE TIME
+    // IF we are done watering, and nextZone is not null...
     if (zonesToWater[0] != 0 && wateringEndTime <= now()) {
 
         // TODO: This may not be needed. I think its hitting it every time
@@ -159,9 +169,9 @@ void loop() {
     }
 }
 
-// -------------------------------------------------------------------------
-// HELPER FUNCTIONS
-// -------------------------------------------------------------------------
+/* ===================================
+HELPER FUNCTIONS
+====================================== */
 
 // Sets the LED color of connected RGB LED
 void setLedColor(long hex, int intensity) {
@@ -299,9 +309,10 @@ void reconnect() {
         }
     }
 }
-// --------------------------------------------------------
-// WATERING FUNCTIONS
-// --------------------------------------------------------
+
+/* ===================================
+WATERING FUNCTIONS
+====================================== */
 
 // Triggers the watering of a specified zone
 void startWatering(int toWater) {
@@ -329,6 +340,7 @@ void startWatering(int toWater) {
     }
 }
 
+// Resets all the pins (ends the watering cycle)
 void endWatering() {
     // set the color
     setLedColor(0xffffff, 10);
@@ -342,8 +354,7 @@ void endWatering() {
     lastWateringTime = now();
 }
 
-// TIME GATHERING 
-
+// Prints out the current time
 void checkCurrentTime() {
     Serial.print("time result:");
     Serial.println(hour());
@@ -351,6 +362,7 @@ void checkCurrentTime() {
     Serial.println(second());
 }
 
+// Gets the current time from the WiFi controller
 void getCurrentTime() {
     Serial.println("Getting the current time");
     
@@ -362,8 +374,7 @@ void getCurrentTime() {
     adjustTime(3600 * -7);
 }
 
-// Wifi Connecting and debugging functions VVVVVVVVVV
-
+// Connect to the wireless network specified in your `arduino_secrets.h` file.
 void connectToWifi() {
     isConnecting = true;
 
@@ -402,6 +413,7 @@ void connectToWifi() {
     setLedColor(0xFFFFFF, 10);
 }
 
+// Prints out the WiFi data to the serial bus
 void printWiFiData() {
 
     // print your board's IP address:
