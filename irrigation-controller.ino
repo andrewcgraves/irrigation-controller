@@ -71,7 +71,7 @@ struct WateringZoneLinkedList {
     WateringZoneLinkedList *next;
 };
 
-int zonesToWater[6];
+// int zonesToWater[6];
 WateringZoneLinkedList *nextZone = NULL;
 
 /* ===================================
@@ -142,30 +142,37 @@ void loop() {
         secondsSinceProgramming = millis() / 1000;
     }
 
-    // LOOPING THROUGH TO CHECK THE TIME
-    // IF we are done watering, and nextZone is not null...
-    if (zonesToWater[0] != 0 && wateringEndTime <= now()) {
+    // TODO: there may be some weird behavior here
+    if (wateringEndTime != -1 && wateringEndTime <= now()) {
+            endWatering();
 
-        // TODO: This may not be needed. I think its hitting it every time
-        // watering is done, so cycle through the zones and set the watering to be the next zone
-        endWatering();
-        cycleArrayItems(zonesToWater);
+        if (nextZone != NULL && nextZone->zone > 0) {
+            // Previous node is done watering, and there is another to water
+            startWatering(nextZone->zone);
 
-        if(zonesToWater[0] != 0) {
-            startWatering(zonesToWater[0]);
+            // Increment the zone
+            struct WateringZoneLinkedList* prevNode = nextZone;
+            nextZone = nextZone->next;
+            free(prevNode);
 
-        } else {
-            // watering is done
+        } else if (nextZone == NULL) {
             Serial.println("Watering is done.");
-            client.publish("info/wateringStatus: ", "on", size_t("on"));
+            client.publish("info/wateringStatus", "off", size_t("off"));
             wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
+            wateringEndTime = -1;
+
         }
     }
 
-    if (zonesToWater[0] != 0 && secondsSinceProgramming != -1 && (millis() / 1000 ) - secondsSinceProgramming > 5) {
+    if (nextZone != NULL && secondsSinceProgramming != -1 && (millis() / 1000 ) - secondsSinceProgramming > 5) {
         secondsSinceProgramming = -1;
-        zonesToWater[0] = selectingCurrentZone;
-        startWatering(zonesToWater[0]);
+
+        // Free any remaining values
+        free(nextZone);
+        nextZone = (struct WateringZoneLinkedList*) malloc(sizeof(struct WateringZoneLinkedList));
+
+        nextZone->zone = selectingCurrentZone;
+        startWatering(nextZone->zone);
     }
 }
 
@@ -173,46 +180,38 @@ void loop() {
 HELPER FUNCTIONS
 ====================================== */
 
+// Free all links of a linked list
+void freeLinkedList(WateringZoneLinkedList* list) {
+    struct WateringZoneLinkedList* currentNode = list;
+    struct WateringZoneLinkedList* temp;
+
+    while (currentNode != NULL) {
+        temp = currentNode;
+        currentNode = currentNode->next;
+        temp->next = NULL;
+        free(temp);
+    }
+}
+
+// Adds a node to an already existing linked-list. The new head is returned
+WateringZoneLinkedList* addNodeToLinkedList(WateringZoneLinkedList* node, int value) {
+    Serial.print("Adding a node with zone of ");
+    Serial.println(value);
+
+    struct WateringZoneLinkedList* newNode = (struct WateringZoneLinkedList*) malloc(sizeof(struct WateringZoneLinkedList));
+    newNode->next = NULL;
+
+    newNode->zone = value;
+    node->next = newNode;
+
+    return newNode;
+}
+
 // Sets the LED color of connected RGB LED
 void setLedColor(long hex, int intensity) {
     leds.setPixelColor(0, hex); 
     leds.setBrightness(10);
     leds.show();
-}
-
-// Fills an int array with 0
-void clearIntArray(int array[]) {
-    int arraySize = sizeof(array)/sizeof(array[0]);
-    if (arraySize > 1) {
-        for (size_t i = 0; i < arraySize; i++) {
-            array[i] = 0;
-        }
-    }
-}
-
-// TODO: redo the queuing here using Linked Lists.
-void cycleArrayItems(int array[]) {
-    int arraySize = 1;
-
-    while (array[arraySize-1] != NULL) {
-        arraySize++;
-    }
-
-    if (arraySize > 1) {
-        for (size_t i = 0; i < arraySize; i++) {
-            if (array[i] != 0) {
-                array[i] = array[i+1];
-            } else {
-                if (i > 0) {
-                    array[i-1] = 0;
-                }
-            }
-        }
-        array[arraySize-1] = 0;
-    } else {
-        array[0] = 0;
-        return;
-    }
 }
 
 // Called whenever an MQTT message is recieved to any topic we are listening to
@@ -245,32 +244,44 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("\n");
 
     if (strcmp("on", tokens[1]) == 0) {
-        Serial.println("Switching on...");
-        //client.publish("ret", payload, length);
+        Serial.println("MQTT 'On' Trigger...");
 
         char* result2 = strtok(tokens[2], ",");
-        c = 0;
+        freeLinkedList(nextZone);
+        nextZone = NULL;
+
+        struct WateringZoneLinkedList* currentHead = NULL;
+        struct WateringZoneLinkedList* newNode = NULL;
 
         while (result2 != NULL) {
-            zonesToWater[c] = atol(result2);
+            newNode = (struct WateringZoneLinkedList*) malloc(sizeof(struct WateringZoneLinkedList));
+            if (nextZone == NULL) { nextZone = newNode; } else { currentHead->next = newNode; }
+            newNode->next = NULL;
+            newNode->zone = atol(result2);
+            currentHead = newNode;
+
             result2 = strtok(NULL, ",");
-            c++;
         }
 
+        currentHead->next = NULL;
         int wateringTime = charPayload.toInt();
         char* wateringZones;
-        
-        if (zonesToWater[0] <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
-            // Now we trigger the sprinkler system
 
+        // TODO: Redo the start watering trigger for MQTT to wrap it up into the main looping body of the arduino code
+        if (nextZone->zone > 0 && nextZone->zone <= NUMBER_OF_WATERING_ZONES && wateringTime <= MAX_WATERING_LENGTH) {
             wateringTime < 1 ? wateringLengthMin = 0.1 : wateringLengthMin = wateringTime;
-
             trigger = TriggeredCause::Manual;
-            startWatering(zonesToWater[0]);
+            startWatering(nextZone->zone);
+            nextZone = nextZone->next;
 
         } else {
-            Serial.println("Invalid Input. Zone must be <= " + NUMBER_OF_WATERING_ZONES);
-            Serial.print("and Time must be <= " + MAX_WATERING_LENGTH);
+            Serial.print("\nInvalid Input. Zone must be <= ");
+            Serial.print(NUMBER_OF_WATERING_ZONES);
+            Serial.print(" and Time must be <= ");
+            Serial.print(MAX_WATERING_LENGTH);
+            Serial.print("... Value: ");
+            Serial.print(nextZone->zone);
+            Serial.print("\n");
         }
 
     } else if (strcmp("off", tokens[1]) == 0) {
@@ -283,7 +294,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
         Serial.println("Switching to auto...");
 
     } else if (strcmp("set_schedule", tokens[1]) == 0) {
-        // TODO - to implement
+        // TODO: - to implement
         
     } else {
         // should never arrive here...
@@ -319,7 +330,7 @@ void startWatering(int toWater) {
     setLedColor(0x00FFFF, 10);
     wateringStartTime = now();
     wateringEndTime = now() + (wateringLengthMin * 60);
-    client.publish("info/wateringStatus: ", "on", size_t("on"));
+    client.publish("info/wateringStatus", "on", size_t("on"));
 
     switch (toWater) {
         case 1: 
