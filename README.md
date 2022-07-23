@@ -26,6 +26,9 @@ It's a pretty simple system and i've tried keeping it organised but heres a quic
     #define SECRET_PASS "{YOUR NETWORK PASSWORD HERE}"
     #define SECRET_BROKER_IP "{YOUR BROKER IP HERE}"
     #define SECRET_BROKER_PORT "{YOUR BROKER PORT HERE}"
+    #define SECRET_BROKER_NAME "{YOUR BROKER NAME HERE}"
+    #define SECRET_BROKER_USERNAME "{YOUR BROKER USERNAME HERE}"
+    #define SECRET_BROKER_PASSWORD "{YOUR BROKER PASSWORD HERE}"
     ```
 - Modify the `irrigation-controller.ino` file with the following information
   - number of zones 

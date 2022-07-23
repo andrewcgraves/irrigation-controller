@@ -307,7 +307,7 @@ void reconnect() {
     while (!client.connected()) {
         Serial.print("Attempting MQTT connection...");
         // Attempt to connect
-        if (client.connect("core-mosquitto")) {
+        if (client.connect(SECRET_BROKER_NAME, SECRET_BROKER_USERNAME, SECRET_BROKER_PASSWORD)) {
             Serial.println("connected");
             // subscribe to a topic
             client.subscribe("sprinkler/#");
