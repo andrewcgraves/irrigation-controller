@@ -1,4 +1,4 @@
-# Irrigation Controller
+# 💧 Irrigation Controller
 An irrigation controller system designed to run on an an **Arduino UNO WIFI Rev 2**
 
 It's a pretty simple system and i've tried keeping it organised but heres a quick breakdown I will update as things are added
