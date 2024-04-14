@@ -59,6 +59,7 @@ long wateringEndTime = -1;
 long lastWateringTime;
 long int secondsSinceProgramming = -1;
 unsigned long lastMillis = 0;
+int status = 0;
 
 bool timeReset = false;
 bool isConnecting = false;
@@ -113,27 +114,16 @@ void loop() {
     autoButton.loop();
     uptime = now() - controllerStartTime;
 
-    // Connect to wifi if the connection drops
-    if (!isConnecting && second() == 0 && (WiFi.status() != WL_CONNECTED)) {
+    // Wifi connection issues
+    status = WiFi.status();
+    if (status == WL_DISCONNECTED || status==WL_CONNECTION_LOST) {
         connectToWifi();
-    }
-
-    // check the mqtt connection
-    if (!client.connected()) {
-        reconnect();
+    } else if (!client.connected()) {
+        attemptMQTTReconnect();
     }
 
     client.loop();
-
-    // This aims to keep the time accurate because it will slowly fall behind
-    if (second() == 0 && minute() == 0 && !timeReset) {
-        getCurrentTime();
-        timeReset = true;
-    }
-
-    if (second() == 1) {
-        timeReset = false;
-    }
+    resyncTime();
 
     // TRIGGERING CHECKS
     if (manualButton.isPressed()) {
@@ -179,6 +169,18 @@ void loop() {
 /* ===================================
 HELPER FUNCTIONS
 ====================================== */
+
+// This aims to keep the time accurate because it will slowly fall behind
+void resyncTime() {
+    if (second() == 0 && minute() == 0 && !timeReset) {
+        getCurrentTime();
+        timeReset = true;
+    }
+
+    if (second() == 1) {
+        timeReset = false;
+    }
+}
 
 // Free all links of a linked list
 void freeLinkedList(WateringZoneLinkedList* list) {
@@ -296,28 +298,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp("set_schedule", tokens[1]) == 0) {
         // TODO: - to implement
         
+    } else if (strcmp("reset", tokens[1]) == 0) {
+        WiFi.disconnect();
+        Serial.println("Disconnecting wifi");
     } else {
         // should never arrive here...
         Serial.println("FORBIDDEN");
     }
 }
 
-void reconnect() {
-    // Loop until we're reconnected
-    while (!client.connected()) {
-        Serial.print("Attempting MQTT connection...");
-        // Attempt to connect
-        if (client.connect(SECRET_BROKER_NAME, SECRET_BROKER_USERNAME, SECRET_BROKER_PASSWORD)) {
-            Serial.println("connected");
-            // subscribe to a topic
-            client.subscribe("sprinkler/#");
-        } else {
-            Serial.print("failed, rc=");
-            Serial.print(client.state());
-            Serial.println(" try again in 5 seconds");
-            // Wait 5 seconds before retrying
-            delay(5000);
-        }
+void attemptMQTTReconnect() {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect(SECRET_BROKER_NAME, SECRET_BROKER_USERNAME, SECRET_BROKER_PASSWORD)) {
+        Serial.println("connected");
+        // subscribe to a topic
+        client.subscribe("sprinkler/#");
+    } else {
+        Serial.print("failed, rc=");
+        Serial.print(client.state());
     }
 }
 
@@ -387,8 +386,6 @@ void getCurrentTime() {
 
 // Connect to the wireless network specified in your `arduino_secrets.h` file.
 void connectToWifi() {
-    isConnecting = true;
-
     // check for the WiFi module:
     if (WiFi.status() == WL_NO_MODULE) {
         Serial.println("Communication with WiFi module failed!");
@@ -404,21 +401,19 @@ void connectToWifi() {
     if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
         Serial.println("Please upgrade the firmware");
     }
-        
-    // attempt to connect to WiFi network:
-    while ( WifiRadioStatus != WL_CONNECTED ) {
+
+    while (status != WL_CONNECTED) {
         Serial.print("Attempting to connect to WPA SSID: ");
         Serial.println(ssid);
-        
-        // Connect to WPA/WPA2 network:
-        WifiRadioStatus = WiFi.begin(ssid, pass);
-        // wait 5 seconds for connection:
-        delay(5000);
+        WiFi.begin(ssid, pass);
+        delay(20000);
+        status = WiFi.status();
+        Serial.print("status is: ");
+        Serial.println(status);
     }
 
     // you're connected now, so print out the data:
     Serial.println("You're connected to the network");
-    isConnecting = false;
     printWiFiData();
 
     setLedColor(0xFFFFFF, 10);
