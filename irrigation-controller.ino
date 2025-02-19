@@ -46,6 +46,8 @@ int MAX_WATERING_LENGTH = 20;
 int DEFAULT_WATERING_LENGTH_MIN = 10;
 int wateringLengthMin = DEFAULT_WATERING_LENGTH_MIN;
 int NUMBER_OF_WATERING_ZONES = 3;
+int PING_INTERVAL = 30; // in seconds
+int MAX_PONG_INTERVAL = 60 * 2; // in seconds
 
 // Keeping track of what triggered the sprinkler
 enum class TriggeredCause { Auto, Manual, Cascading };
@@ -65,6 +67,10 @@ bool timeReset = false;
 bool isConnecting = false;
 
 int selectingCurrentZone;
+
+time_t lastPong = -1;
+bool connectingToWifi;
+bool connectingToMQTT;
 
 // Handeling the Queue of zones
 struct WateringZoneLinkedList {
@@ -97,7 +103,10 @@ void setup() {
       ; // wait for serial port to connect. Needed for native USB port only
     }
 
-    connectToWifi();
+    // connectToWifi();
+    connectingToMQTT = false;
+    connectingToWifi = false;
+
     client.setServer(SECRET_BROKER_IP, 1883);
     client.setCallback(callback); 
     getCurrentTime();
@@ -114,12 +123,35 @@ void loop() {
     autoButton.loop();
     uptime = now() - controllerStartTime;
 
-    // Wifi connection issues
     status = WiFi.status();
-    if (status == WL_DISCONNECTED || status==WL_CONNECTION_LOST) {
-        connectToWifi();
-    } else if (!client.connected()) {
+
+    // Wifi connection issues
+    if (status == WL_CONNECTED) {
+      if (!connectingToMQTT && !client.connected()) {
+        Serial.println("MQTT Connection lost... Attempting re-connect");
         attemptMQTTReconnect();
+      }
+
+      // if its been more than the interval since the last ping, we ping the server
+      if ((millis()) > lastMillis + (1000 * PING_INTERVAL)) {
+          client.publish("info/sprinkler/ping", "", size_t(""));
+          Serial.println("\nSent ping...\n");
+          Serial.println(millis());
+          Serial.println(millis() + 1000 * PING_INTERVAL);
+          Serial.println();
+          lastMillis = millis();
+      }
+
+    } else if (!connectingToWifi) {
+      Serial.println("Connection lost... Attempting re-connect");
+      connectToWifi();
+      lastPong = now();
+    }
+
+    // if this is the case, we need to flip the wifi signal
+    if (lastPong + MAX_PONG_INTERVAL < now()) {
+        Serial.println("max interval without pong");
+        connectToWifi();
     }
 
     client.loop();
@@ -301,6 +333,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp("reset", tokens[1]) == 0) {
         WiFi.disconnect();
         Serial.println("Disconnecting wifi");
+    } else if (strcmp("pong", tokens[1]) == 0) {
+        Serial.println("recieved pong from broker...");
+        lastPong = now();
     } else {
         // should never arrive here...
         Serial.println("FORBIDDEN");
@@ -308,12 +343,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void attemptMQTTReconnect() {
+    connectingToMQTT = true;
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect(SECRET_BROKER_NAME, SECRET_BROKER_USERNAME, SECRET_BROKER_PASSWORD)) {
         Serial.println("connected");
         // subscribe to a topic
         client.subscribe("sprinkler/#");
+        connectingToMQTT = false;
     } else {
         Serial.print("failed, rc=");
         Serial.print(client.state());
@@ -386,6 +423,7 @@ void getCurrentTime() {
 
 // Connect to the wireless network specified in your `arduino_secrets.h` file.
 void connectToWifi() {
+    connectingToWifi = true;
     // check for the WiFi module:
     if (WiFi.status() == WL_NO_MODULE) {
         Serial.println("Communication with WiFi module failed!");
@@ -402,6 +440,8 @@ void connectToWifi() {
         Serial.println("Please upgrade the firmware");
     }
 
+    WiFi.disconnect();
+
     while (status != WL_CONNECTED) {
         Serial.print("Attempting to connect to WPA SSID: ");
         Serial.println(ssid);
@@ -417,6 +457,7 @@ void connectToWifi() {
     printWiFiData();
 
     setLedColor(0xFFFFFF, 10);
+    connectingToWifi = false;
 }
 
 // Prints out the WiFi data to the serial bus
