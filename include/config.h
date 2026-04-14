@@ -38,12 +38,13 @@ static const int OLED_WIDTH  = 128;
 static const int OLED_HEIGHT = 32;
 
 // --- Rotary Encoder (PEC11) ---
-static const int PIN_ENCODER_CLK = 3;   // A2
-static const int PIN_ENCODER_DT  = 4;   // A3
-static const int PIN_ENCODER_SW  = 13;  // A6
+// Arduino Nano ESP32 pin numbers: A2=19, A3=20, A6=23, A7=24
+static const int PIN_ENCODER_CLK = 19;  // A2
+static const int PIN_ENCODER_DT  = 20;  // A3
+static const int PIN_ENCODER_SW  = 23;  // A6
 
 // --- Per-Zone LEDs ---
-static const int PIN_LED_ZONE1 = 14;  // A7
+static const int PIN_LED_ZONE1 = 24;  // A7
 static const int PIN_LED_ZONE2 = 44;  // D0
 static const int PIN_LED_ZONE3 = 43;  // D1
 static const int PIN_LED_ZONE4 = 18;  // D7

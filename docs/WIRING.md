@@ -228,16 +228,16 @@ The Nano ESP32 only exposes 3.3V as a power output — there is no always-on 5V 
 
 | Arduino Pin | Nano Pin | Function | Direction | Notes |
 |-------------|----------|----------|-----------|-------|
-| 3 | A2 | Encoder CLK | Input | Internal pullup |
-| 4 | A3 | Encoder DT | Input | Internal pullup |
+| 19 | A2 | Encoder CLK | Input | Internal pullup |
+| 20 | A3 | Encoder DT | Input | Internal pullup |
 | 5 | D2 | Relay Zone 1 | Output | Active LOW |
 | 8 | D8 | OLED RST | Output | Display reset |
 | 9 | D9 | OLED MOSI | Output | Software SPI data |
 | 10 | D10 | OLED CLK | Output | Software SPI clock |
 | 11 | D11 | OLED DC | Output | Data/Command select |
 | 12 | D12 | OLED CS | Output | Chip Select |
-| 13 | A6 | Encoder SW | Input | Internal pullup |
-| 14 | A7 | LED Zone 1 | Output | Via 220 ohm |
+| 23 | A6 | Encoder SW | Input | Internal pullup |
+| 24 | A7 | LED Zone 1 | Output | Via 220 ohm |
 | 15 | D4 | Relay Zone 2 | Output | Active LOW |
 | 16 | D5 | Relay Zone 3 | Output | Active LOW |
 | 17 | D6 | Relay Zone 4 | Output | Active LOW |
