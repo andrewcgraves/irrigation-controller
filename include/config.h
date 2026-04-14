@@ -28,11 +28,11 @@ static const int RELAY_ON  = 0;
 static const int RELAY_OFF = 1;
 
 // --- SPI OLED (SSD1306 128x32) ---
-static const int PIN_OLED_MOSI = 38;  // D11
-static const int PIN_OLED_CLK  = 39;  // D12
-static const int PIN_OLED_CS   = 40;  // D13
-static const int PIN_OLED_DC   = 1;   // A0
-static const int PIN_OLED_RST  = 2;   // A1
+static const int PIN_OLED_MOSI = 9;
+static const int PIN_OLED_CLK  = 10;
+static const int PIN_OLED_DC   = 11;
+static const int PIN_OLED_CS   = 12;
+static const int PIN_OLED_RST  = 8;   // D8
 
 static const int OLED_WIDTH  = 128;
 static const int OLED_HEIGHT = 32;

@@ -109,11 +109,11 @@ Auto-publishes to `homeassistant/switch/irrigation_zone{n}/config` on connect. D
 | Zone 2 relay | 15 | D4 |
 | Zone 3 relay | 16 | D5 |
 | Zone 4 relay | 17 | D6 |
-| OLED MOSI/SDA | 38 | D11 |
-| OLED CLK/SCL | 39 | D12 |
-| OLED CS | 40 | D13 |
-| OLED DC | 1 | A0 |
-| OLED RST | 2 | A1 |
+| OLED MOSI/SDA | 9 | D9 |
+| OLED CLK/SCL | 10 | D10 |
+| OLED DC | 11 | D11 |
+| OLED CS | 12 | D12 |
+| OLED RST | 8 | D8 |
 | Encoder CLK (A) | 3 | A2 |
 | Encoder DT (B) | 4 | A3 |
 | Encoder SW | 13 | A6 |
@@ -138,6 +138,10 @@ See `docs/WIRING.md` for the full wiring diagram and BOM.
 Mock objects in `test/mocks/`: `MockHAL`, `MockClock`.
 
 Run with: `pio test -e native`
+
+## Documentation
+
+Whenever pin assignments, timing constants, MQTT topics, or hardware configuration change, update **both** `docs/WIRING.md` and this file to keep them in sync with `include/config.h`. Stale docs cause wiring mistakes.
 
 ## Coding Conventions
 - **No dynamic allocation**: All data structures use fixed-size arrays (e.g., `ZoneRunQueue` uses a plain array, `Schedule` is a plain struct). No `new`/`malloc`.

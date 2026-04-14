@@ -16,16 +16,12 @@ DisplayManager::DisplayManager(IHAL& hal, IClock& clock,
     , _rstPin(rstPin)
     , _csPin(csPin)
 {
-    // Hardware SPI constructor: pass &SPI, dc, rst, cs
-    _oled = new Adafruit_SSD1306(OLED_WIDTH, OLED_HEIGHT, &SPI, dcPin, rstPin, csPin);
+    // Software SPI constructor: pins passed directly, no SPI peripheral needed
+    _oled = new Adafruit_SSD1306(OLED_WIDTH, OLED_HEIGHT, mosiPin, clkPin, dcPin, rstPin, csPin);
 }
 
 void DisplayManager::begin() {
-    // Explicitly init the SPI bus with the correct pins for the Nano ESP32
-    // (SCK, MISO=-1, MOSI, SS)
-    SPI.begin(_clkPin, -1, _mosiPin, _csPin);
-
-    if (!_oled->begin(SSD1306_SWITCHCAPVCC, 0)) {
+    if (!_oled->begin(SSD1306_SWITCHCAPVCC)) {
         _hal.serialPrintln("SSD1306 init failed");
         return;
     }

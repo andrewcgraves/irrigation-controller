@@ -28,13 +28,13 @@
 
 ### SPI OLED Display (SSD1306 128x32)
 
-| Signal | Nano ESP32 Pin | GPIO | OLED Pin | Wire Color (suggested) |
-|--------|---------------|------|----------|----------------------|
-| MOSI (Data) | D11 | GPIO 38 | SDA/MOSI | Blue |
-| CLK (Clock) | D12 | GPIO 39 | SCL/CLK | Purple |
-| CS (Chip Select) | D13 | GPIO 40 | CS | Gray |
-| DC (Data/Command) | A0 | GPIO 1 | DC | White |
-| RST (Reset) | A1 | GPIO 2 | RST | Brown |
+| Signal | Nano ESP32 Pin | Arduino Pin | OLED Pin | Wire Color (suggested) |
+|--------|---------------|-------------|----------|----------------------|
+| MOSI (Data) | D9 | 9 | SDA/MOSI | Blue |
+| CLK (Clock) | D10 | 10 | SCL/CLK | Purple |
+| DC (Data/Command) | D11 | 11 | DC | White |
+| CS (Chip Select) | D12 | 12 | CS | Gray |
+| RST (Reset) | D8 | 8 | RST | Brown |
 | VCC | 3V3 | - | VCC | Red |
 | 3.3VO | — | - | 3.3VO | Leave unconnected (regulator output) |
 | GND | GND | - | GND | Black |
@@ -92,11 +92,11 @@ LED Behavior:
                      | D5  (GPIO 16) o------+---------> Relay CH3 IN (Zone 3)
                      | D6  (GPIO 17) o------+---------> Relay CH4 IN (Zone 4)
                      |                      |
-                     | D11 (GPIO 38) o------+---------> OLED SDA (MOSI)
-                     | D12 (GPIO 39) o------+---------> OLED SCL (CLK)
-                     | D13 (GPIO 40) o------+---------> OLED CS
-                     | A0  (GPIO  1) o------+---------> OLED DC
-                     | A1  (GPIO  2) o------+---------> OLED RST
+                     | D8  (pin   8) o------+---------> OLED RST
+                     | D9  (pin   9) o------+---------> OLED SDA (MOSI)
+                     | D10 (pin  10) o------+---------> OLED SCL (CLK)
+                     | D11 (pin  11) o------+---------> OLED DC
+                     | D12 (pin  12) o------+---------> OLED CS
                      |                      |
                      | A2  (GPIO  3) o------+---------> Encoder CLK (A)
                      | A3  (GPIO  4) o------+---------> Encoder DT  (B)
@@ -210,11 +210,11 @@ Each LED uses a 220 ohm current-limiting resistor. At 3.3V with a ~2V green LED 
     | GND    |--- GND bus
     | VCC    |--- 3.3V (from Nano ESP32 3V3 pin)
     | 3.3VO  |--- leave unconnected (regulator output, not needed here)
-    | SCL    |--- GPIO 39 (D12) - SPI Clock
-    | SDA    |--- GPIO 38 (D11) - SPI MOSI (Data)
-    | RST    |--- GPIO  2 (A1)  - Reset
-    | DC     |--- GPIO  1 (A0)  - Data/Command select
-    | CS     |--- GPIO 40 (D13) - Chip Select
+    | SCL    |--- D10 (pin 10) - SPI Clock
+    | SDA    |--- D9  (pin  9) - SPI MOSI (Data)
+    | RST    |--- D8  (pin  8) - Reset
+    | DC     |--- D11 (pin 11) - Data/Command select
+    | CS     |--- D12 (pin 12) - Chip Select
     +--------+
 ```
 
@@ -226,26 +226,26 @@ The Nano ESP32 only exposes 3.3V as a power output — there is no always-on 5V 
 
 ## GPIO Usage Summary
 
-| GPIO | Nano Pin | Function | Direction | Notes |
-|------|----------|----------|-----------|-------|
-| 1 | A0 | OLED DC | Output | Data/Command select |
-| 2 | A1 | OLED RST | Output | Display reset |
+| Arduino Pin | Nano Pin | Function | Direction | Notes |
+|-------------|----------|----------|-----------|-------|
 | 3 | A2 | Encoder CLK | Input | Internal pullup |
 | 4 | A3 | Encoder DT | Input | Internal pullup |
 | 5 | D2 | Relay Zone 1 | Output | Active LOW |
+| 8 | D8 | OLED RST | Output | Display reset |
+| 9 | D9 | OLED MOSI | Output | Software SPI data |
+| 10 | D10 | OLED CLK | Output | Software SPI clock |
+| 11 | D11 | OLED DC | Output | Data/Command select |
+| 12 | D12 | OLED CS | Output | Chip Select |
 | 13 | A6 | Encoder SW | Input | Internal pullup |
 | 14 | A7 | LED Zone 1 | Output | Via 220 ohm |
 | 15 | D4 | Relay Zone 2 | Output | Active LOW |
 | 16 | D5 | Relay Zone 3 | Output | Active LOW |
 | 17 | D6 | Relay Zone 4 | Output | Active LOW |
 | 18 | D7 | LED Zone 4 | Output | Via 220 ohm |
-| 38 | D11 | OLED MOSI | Output | SPI Data |
-| 39 | D12 | OLED CLK | Output | SPI Clock |
-| 40 | D13 | OLED CS | Output | SPI Chip Select |
 | 43 | D1 | LED Zone 3 | Output | Via 220 ohm |
 | 44 | D0 | LED Zone 2 | Output | Via 220 ohm |
 
-**Total: 17 GPIO used / 24 available** (7 free for future expansion)
+**Total: 15 pins used** (OLED RST and Encoder SW share pin 13)
 
 ### Restricted GPIOs (DO NOT USE)
 
