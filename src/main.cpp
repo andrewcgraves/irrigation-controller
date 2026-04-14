@@ -149,7 +149,7 @@ static AppCallbacks callbacks;
 
 void setup() {
     Serial.begin(115200);
-    delay(500); // brief delay for serial monitor
+    delay(3000); // brief delay for serial monitor
 
     Serial.println("Irrigation Controller starting...");
 
