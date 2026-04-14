@@ -8,8 +8,11 @@ void ClockManager::beginNTP(long gmtOffsetSec, int daylightOffsetSec) {
 }
 
 struct tm ClockManager::_getTime() {
-    struct tm timeinfo;
-    getLocalTime(&timeinfo);
+    struct tm timeinfo = {};
+    // Pass 0ms timeout so this never blocks — if NTP hasn't synced yet the
+    // struct stays zero-initialised (hour=0, minute=0, etc.) and the caller
+    // gets a safe, if inaccurate, value instead of a 5-second stall.
+    getLocalTime(&timeinfo, 0);
     return timeinfo;
 }
 

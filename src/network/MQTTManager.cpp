@@ -370,6 +370,10 @@ void MQTTManager::connectWifi() {
 void MQTTManager::connectMQTT() {
     _hal.serialPrint("MQTT connecting...");
 
+    // Cap the TCP connection attempt at 3 seconds so a missing broker doesn't
+    // stall the main loop (which must keep polling the encoder).
+    _wifiClient.setTimeout(3000);
+
     bool connected = _mqttClient.connect(
         _clientName, _mqttUser, _mqttPass,
         "sprinkler/status/online", 0, true, "offline" // LWT

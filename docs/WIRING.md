@@ -245,7 +245,7 @@ The Nano ESP32 only exposes 3.3V as a power output — there is no always-on 5V 
 | 43 | D1 | LED Zone 3 | Output | Via 220 ohm |
 | 44 | D0 | LED Zone 2 | Output | Via 220 ohm |
 
-**Total: 15 pins used** (OLED RST and Encoder SW share pin 13)
+**Total: 16 pins used**
 
 ### Restricted GPIOs (DO NOT USE)
 

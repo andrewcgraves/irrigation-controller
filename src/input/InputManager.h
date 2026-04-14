@@ -40,7 +40,8 @@ private:
     int   _swPin;
 
     // Encoder state
-    int  _lastClk;
+    int           _lastClk;
+    unsigned long _lastEncoderTime;
 
     // Button state
     bool          _buttonDown;
