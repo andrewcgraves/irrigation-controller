@@ -155,9 +155,9 @@ void setup() {
 
     // Initialize hardware
     zoneCtrl.begin();
+    display.begin();
     leds.begin();
     input.begin();
-    display.begin();
 
     // Load saved schedules from NVS
     scheduler.loadFromNVS();
