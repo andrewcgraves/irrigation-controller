@@ -37,7 +37,9 @@ static LEDManager leds(hal, ZONE_LED_PINS, NUM_ZONES);
 class AppCallbacks : public IStateMachineCallbacks {
 public:
     void onShowHome(bool wifiConnected, bool mqttConnected) override {
-        display.showHomeScreen(wifiConnected, mqttConnected, nullptr);
+        char nextBuf[16];
+        scheduler.getNextScheduleText(nextBuf, sizeof(nextBuf));
+        display.showHomeScreen(wifiConnected, mqttConnected, nextBuf[0] ? nextBuf : nullptr);
     }
 
     void onShowMenu(Screen screen, const MenuSystem& m) override {

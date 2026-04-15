@@ -185,15 +185,15 @@ void DisplayManager::showZoneSelector(const char* title, const bool zoneEnabled[
     _oled->setCursor(0, 0);
     _oled->println(title);
 
+    // All 4 zones fit at once: [Z1+] = 5 chars × 4 = 20 chars ≤ 21-char line width.
     char line[22] = "";
     int pos = 0;
     for (int z = 0; z < 4; z++) {
         const char* mark = zoneEnabled[z] ? "+" : "-";
-        if (z == cursorPos) {
-            pos += snprintf(line + pos, sizeof(line) - pos, "[Z%d:%s]", z + 1, mark);
-        } else {
-            pos += snprintf(line + pos, sizeof(line) - pos, " Z%d:%s ", z + 1, mark);
-        }
+        if (z == cursorPos)
+            pos += snprintf(line + pos, sizeof(line) - pos, "[Z%d%s]", z + 1, mark);
+        else
+            pos += snprintf(line + pos, sizeof(line) - pos, " Z%d%s ", z + 1, mark);
     }
     _oled->println(line);
     clearAndDisplay();

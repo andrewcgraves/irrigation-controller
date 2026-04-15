@@ -75,6 +75,10 @@ public:
 
     int slotCount() const { return SCHEDULER_MAX_SLOTS; }
 
+    // Fills buf with a short display string for the next enabled schedule
+    // (e.g. "8:00 AM"), or empty string if none.
+    void getNextScheduleText(char* buf, size_t bufLen) const;
+
 private:
     bool matchesNow(const Schedule& sched) const;
 

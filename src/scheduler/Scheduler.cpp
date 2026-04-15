@@ -1,4 +1,5 @@
 #include "Scheduler.h"
+#include <cstdio>
 
 const char* Scheduler::NVS_KEY = "schedules";
 
@@ -138,6 +139,21 @@ bool Scheduler::toggleSchedule(int slot) {
     if (slot < 0 || slot >= SCHEDULER_MAX_SLOTS) return false;
     _slots[slot].enabled = !_slots[slot].enabled;
     return true;
+}
+
+void Scheduler::getNextScheduleText(char* buf, size_t bufLen) const {
+    if (!buf || bufLen == 0) return;
+    for (int i = 0; i < SCHEDULER_MAX_SLOTS; i++) {
+        const Schedule& s = _slots[i];
+        if (!s.enabled || s.zoneCount == 0) continue;
+        int h = s.startHour;
+        bool pm = h >= 12;
+        int h12 = h % 12;
+        if (h12 == 0) h12 = 12;
+        snprintf(buf, bufLen, "%d:%02d %s", h12, s.startMinute, pm ? "PM" : "AM");
+        return;
+    }
+    buf[0] = '\0';
 }
 
 bool Scheduler::matchesNow(const Schedule& sched) const {
