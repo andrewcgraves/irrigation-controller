@@ -227,6 +227,33 @@ void test_remaining_seconds_zero_when_not_watering() {
     TEST_ASSERT_EQUAL(0, zc->remainingSeconds());
 }
 
+// --- activeDurationSeconds() tests ---
+
+void test_active_duration_seconds_returns_total() {
+    ZoneRunQueue q;
+    q.add(1, 10); // 10 minutes = 600 seconds
+    zc->startQueue(q);
+
+    TEST_ASSERT_EQUAL(600, zc->activeDurationSeconds());
+
+    // Should stay constant as time passes (it's the total, not remaining)
+    clk.advanceSeconds(100);
+    TEST_ASSERT_EQUAL(600, zc->activeDurationSeconds());
+}
+
+void test_active_duration_seconds_zero_when_not_watering() {
+    TEST_ASSERT_EQUAL(0, zc->activeDurationSeconds());
+}
+
+void test_active_duration_seconds_zero_after_stop() {
+    ZoneRunQueue q;
+    q.add(1, 10);
+    zc->startQueue(q);
+    zc->stopAll();
+
+    TEST_ASSERT_EQUAL(0, zc->activeDurationSeconds());
+}
+
 // --- Edge cases ---
 
 void test_update_does_nothing_when_not_watering() {
@@ -276,6 +303,10 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_remaining_seconds_counts_down);
     RUN_TEST(test_remaining_seconds_zero_when_not_watering);
+
+    RUN_TEST(test_active_duration_seconds_returns_total);
+    RUN_TEST(test_active_duration_seconds_zero_when_not_watering);
+    RUN_TEST(test_active_duration_seconds_zero_after_stop);
 
     RUN_TEST(test_update_does_nothing_when_not_watering);
     RUN_TEST(test_invalid_zone_id_ignored);

@@ -69,6 +69,7 @@ public:
     int       activeZone() const;           // 0 if none
     bool      isWatering() const;
     int       remainingSeconds() const;
+    int       activeDurationSeconds() const;  // 0 if no zone active
 
 private:
     void activateZone(const ZoneRun& run);

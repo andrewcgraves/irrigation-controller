@@ -313,12 +313,9 @@ void StateMachine::updateWateringDisplay() {
     int activeZone = _zoneCtrl.activeZone();
     if (activeZone == 0) return;
 
-    int remainSec = _zoneCtrl.remainingSeconds();
-    // We need total duration — compute from remaining + elapsed
-    // For now, use remaining as a proxy. The display will show countdown.
-    int totalSec = remainSec; // simplified — display just shows remaining
-    int elapsedSec = 0;
+    int remainSec  = _zoneCtrl.remainingSeconds();
+    int totalSec   = _zoneCtrl.activeDurationSeconds();
+    int elapsedSec = totalSec - remainSec;
 
-    // Find next zone in queue (we don't have direct access, so use 0)
     _cb->onShowWatering(activeZone, elapsedSec, remainSec, 0);
 }

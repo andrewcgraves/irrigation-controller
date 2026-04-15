@@ -89,6 +89,10 @@ int ZoneController::remainingSeconds() const {
     return remaining > 0 ? remaining : 0;
 }
 
+int ZoneController::activeDurationSeconds() const {
+    return _activeZone > 0 ? _zoneDurationMin * 60 : 0;
+}
+
 void ZoneController::activateZone(const ZoneRun& run) {
     if (run.zoneId < 1 || run.zoneId > _numZones) return;
 
