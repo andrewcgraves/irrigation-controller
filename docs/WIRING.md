@@ -17,14 +17,14 @@
 
 ## Pin Assignment Table
 
-### Relay Outputs (Active LOW: LOW = ON, HIGH = OFF)
+### Relay Outputs (Active HIGH: HIGH = ON, LOW = OFF)
 
 | Signal | Nano ESP32 Pin | GPIO | Relay Channel | Wire Color (suggested) |
 |--------|---------------|------|---------------|----------------------|
 | Zone 1 Relay | D2 | GPIO 5 | CH1 | Red |
-| Zone 2 Relay | D4 | GPIO 15 | CH2 | Orange |
-| Zone 3 Relay | D5 | GPIO 16 | CH3 | Yellow |
-| Zone 4 Relay | D6 | GPIO 17 | CH4 | Green |
+| Zone 2 Relay | D4 | GPIO 7 | CH2 | Orange |
+| Zone 3 Relay | D5 | GPIO 8 | CH3 | Yellow |
+| Zone 4 Relay | D6 | GPIO 9 | CH4 | Green |
 
 ### SPI OLED Display (SSD1306 128x32)
 
@@ -88,9 +88,9 @@ LED Behavior:
               USB -->| USB-C          3V3 o-+---------> OLED VCC
                      |                      |
                      | D2  (GPIO  5) o------+---------> Relay CH1 IN (Zone 1)
-                     | D4  (GPIO 15) o------+---------> Relay CH2 IN (Zone 2)
-                     | D5  (GPIO 16) o------+---------> Relay CH3 IN (Zone 3)
-                     | D6  (GPIO 17) o------+---------> Relay CH4 IN (Zone 4)
+                     | D4  (GPIO  7) o------+---------> Relay CH2 IN (Zone 2)
+                     | D5  (GPIO  8) o------+---------> Relay CH3 IN (Zone 3)
+                     | D6  (GPIO  9) o------+---------> Relay CH4 IN (Zone 4)
                      |                      |
                      | D8  (pin   8) o------+---------> OLED RST
                      | D9  (pin   9) o------+---------> OLED SDA (MOSI)
@@ -121,9 +121,9 @@ LED Behavior:
     +----------------------------+            +---------------------------+
     |                            |            |                           |
     | IN1 <-- Zone 1 (GPIO  5)  |            |  Valve 1 <-- Relay 1 NO  |
-    | IN2 <-- Zone 2 (GPIO 15)  |  24VAC     |  Valve 2 <-- Relay 2 NO  |
-    | IN3 <-- Zone 3 (GPIO 16)  |  Common -->|  Valve 3 <-- Relay 3 NO  |
-    | IN4 <-- Zone 4 (GPIO 17)  |  Wire      |  Valve 4 <-- Relay 4 NO  |
+    | IN2 <-- Zone 2 (GPIO  7)  |  24VAC     |  Valve 2 <-- Relay 2 NO  |
+    | IN3 <-- Zone 3 (GPIO  8)  |  Common -->|  Valve 3 <-- Relay 3 NO  |
+    | IN4 <-- Zone 4 (GPIO  9)  |  Wire      |  Valve 4 <-- Relay 4 NO  |
     |                            |            |                           |
     | VCC <-- 5V                 |            |  Common wire to 24VAC    |
     | GND <-- GND                |            |  transformer return      |
@@ -161,7 +161,7 @@ Each relay channel switches 24VAC power to a solenoid valve:
 - Each relay NO connects to its solenoid valve
 - All solenoid valve common wires connect back to the 24VAC transformer return
 
-**IMPORTANT: The relay module is active-LOW.** GPIO LOW = relay ON = valve open. GPIO HIGH = relay OFF = valve closed. The firmware handles this automatically.
+**IMPORTANT: The relay module is active-HIGH.** GPIO HIGH = relay ON = valve open. GPIO LOW = relay OFF = valve closed. GPIO defaults LOW on boot and when the board is unplugged, so valves stay closed until explicitly activated by firmware.
 
 ---
 
@@ -226,24 +226,27 @@ The Nano ESP32 only exposes 3.3V as a power output — there is no always-on 5V 
 
 ## GPIO Usage Summary
 
-| Arduino Pin | Nano Pin | Function | Direction | Notes |
-|-------------|----------|----------|-----------|-------|
-| 19 | A2 | Encoder CLK | Input | Internal pullup |
-| 20 | A3 | Encoder DT | Input | Internal pullup |
-| 5 | D2 | Relay Zone 1 | Output | Active LOW |
-| 8 | D8 | OLED RST | Output | Display reset |
-| 9 | D9 | OLED MOSI | Output | Software SPI data |
-| 10 | D10 | OLED CLK | Output | Software SPI clock |
-| 11 | D11 | OLED DC | Output | Data/Command select |
-| 12 | D12 | OLED CS | Output | Chip Select |
-| 23 | A6 | Encoder SW | Input | Internal pullup |
-| 24 | A7 | LED Zone 1 | Output | Via 220 ohm |
-| 15 | D4 | Relay Zone 2 | Output | Active LOW |
-| 16 | D5 | Relay Zone 3 | Output | Active LOW |
-| 17 | D6 | Relay Zone 4 | Output | Active LOW |
-| 18 | D7 | LED Zone 4 | Output | Via 220 ohm |
-| 43 | D1 | LED Zone 3 | Output | Via 220 ohm |
-| 44 | D0 | LED Zone 2 | Output | Via 220 ohm |
+**BOARD_HAS_PIN_REMAP is active.** "Arduino Pin" values are remapped API pin numbers passed to
+`pinMode()`/`digitalWrite()`. The framework translates them to the actual hardware GPIO numbers shown.
+
+| Arduino Pin | Nano Pin | GPIO | Function | Direction | Notes |
+|-------------|----------|------|----------|-----------|-------|
+| 0 | D0 | 44 | LED Zone 2 | Output | Via 220 ohm |
+| 1 | D1 | 43 | LED Zone 3 | Output | Via 220 ohm |
+| 2 | D2 | 5 | Relay Zone 1 | Output | Active LOW |
+| 4 | D4 | 7 | Relay Zone 2 | Output | Active LOW |
+| 5 | D5 | 8 | Relay Zone 3 | Output | Active LOW |
+| 6 | D6 | 9 | Relay Zone 4 | Output | Active LOW |
+| 7 | D7 | 10 | LED Zone 4 | Output | Via 220 ohm |
+| 8 | D8 | 17 | OLED RST | Output | Display reset |
+| 9 | D9 | 18 | OLED MOSI | Output | Software SPI data |
+| 10 | D10 | 21 | OLED CLK | Output | Software SPI clock |
+| 11 | D11 | 38 | OLED DC | Output | Data/Command select |
+| 12 | D12 | 47 | OLED CS | Output | Chip Select |
+| 19 | A2 | 3 | Encoder CLK | Input | Internal pullup |
+| 20 | A3 | 4 | Encoder DT | Input | Internal pullup |
+| 23 | A6 | 13 | Encoder SW | Input | Internal pullup |
+| 24 | A7 | 14 | LED Zone 1 | Output | Via 220 ohm |
 
 **Total: 16 pins used**
 
@@ -274,7 +277,7 @@ The Nano ESP32 only exposes 3.3V as a power output — there is no always-on 5V 
 ## Assembly Checklist
 
 - [ ] Solder header pins to Arduino Nano ESP32 (if not pre-soldered)
-- [ ] Wire relay module: VCC to 5V, GND to GND, IN1-IN4 to GPIO 5/15/16/17
+- [ ] Wire relay module: VCC to 5V, GND to GND, IN1-IN4 to D2/D4/D5/D6 (GPIO 5/7/8/9)
 - [ ] Wire OLED display: VCC to 3V3, GND to GND, SPI data/clock/CS/DC/RST
 - [ ] Wire PEC11 encoder: A to GPIO 3, B to GPIO 4, C to GND, SW to GPIO 13, SW-GND to GND
 - [ ] Wire LEDs with 220 ohm resistors: anodes to GPIO 14/44/43/18, cathodes to GND

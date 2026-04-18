@@ -103,26 +103,30 @@ Auto-publishes to `homeassistant/switch/irrigation_zone{n}/config` on connect. D
 ## Hardware
 
 ### Pin Assignments
-| Signal | GPIO | Arduino Label |
-|---|---|---|
-| Zone 1 relay | 5 | D2 |
-| Zone 2 relay | 15 | D4 |
-| Zone 3 relay | 16 | D5 |
-| Zone 4 relay | 17 | D6 |
-| OLED MOSI/SDA | 9 | D9 |
-| OLED CLK/SCL | 10 | D10 |
-| OLED DC | 11 | D11 |
-| OLED CS | 12 | D12 |
-| OLED RST | 8 | D8 |
-| Encoder CLK (A) | 3 | A2 |
-| Encoder DT (B) | 4 | A3 |
-| Encoder SW | 13 | A6 |
-| Zone 1 LED | 14 | A7 |
-| Zone 2 LED | 44 | D0 |
-| Zone 3 LED | 43 | D1 |
-| Zone 4 LED | 18 | D7 |
 
-**Relay logic**: Active-LOW — `LOW` = valve ON, `HIGH` = valve OFF.
+**Note**: Board uses `BOARD_HAS_PIN_REMAP`. Code uses Arduino API pin numbers (not raw GPIO numbers).
+The framework translates them to hardware GPIO via `io_pin_remap.cpp`.
+
+| Signal | Arduino API Pin | GPIO | Arduino Label |
+|---|---|---|---|
+| Zone 1 relay | 2 | 5 | D2 |
+| Zone 2 relay | 4 | 7 | D4 |
+| Zone 3 relay | 5 | 8 | D5 |
+| Zone 4 relay | 6 | 9 | D6 |
+| OLED MOSI/SDA | 9 | 18 | D9 |
+| OLED CLK/SCL | 10 | 21 | D10 |
+| OLED DC | 11 | 38 | D11 |
+| OLED CS | 12 | 47 | D12 |
+| OLED RST | 8 | 17 | D8 |
+| Encoder CLK (A) | 19 | 3 | A2 |
+| Encoder DT (B) | 20 | 4 | A3 |
+| Encoder SW | 23 | 13 | A6 |
+| Zone 1 LED | 24 | 14 | A7 |
+| Zone 2 LED | 0 | 44 | D0 |
+| Zone 3 LED | 1 | 43 | D1 |
+| Zone 4 LED | 7 | 10 | D7 |
+
+**Relay logic**: Active-HIGH — `HIGH` = valve ON, `LOW` = valve OFF. GPIO defaults LOW on boot/unplug, so valves stay closed until firmware activates them.
 
 See `docs/WIRING.md` for the full wiring diagram and BOM.
 

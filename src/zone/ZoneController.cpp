@@ -1,4 +1,5 @@
 #include "ZoneController.h"
+#include "../../include/config.h"
 
 ZoneController::ZoneController(IHAL& hal, IClock& clock, const int* relayPins, int numZones)
     : _hal(hal)
@@ -16,9 +17,10 @@ ZoneController::ZoneController(IHAL& hal, IClock& clock, const int* relayPins, i
 
 void ZoneController::begin() {
     for (int i = 0; i < _numZones; i++) {
+        // Pre-set latch to OFF before enabling output so the pin never glitches ON during boot
+        _hal.gpioWrite(_relayPins[i], RELAY_OFF);
         _hal.gpioMode(_relayPins[i], OUTPUT);
     }
-    setAllRelaysOff();
 }
 
 void ZoneController::startQueue(const ZoneRunQueue& queue) {
@@ -104,8 +106,7 @@ void ZoneController::activateZone(const ZoneRun& run) {
     _zoneStartTime = _clock.now();
     _states[run.zoneId - 1] = ZoneState::ACTIVE;
 
-    // Active LOW relay
-    _hal.gpioWrite(_relayPins[run.zoneId - 1], LOW);
+    _hal.gpioWrite(_relayPins[run.zoneId - 1], RELAY_ON);
 
     _hal.serialPrint("Zone ");
     char buf[4];
@@ -119,7 +120,7 @@ void ZoneController::deactivateCurrentZone(bool markCompleted) {
     if (_activeZone == 0) return;
 
     int idx = _activeZone - 1;
-    _hal.gpioWrite(_relayPins[idx], HIGH);
+    _hal.gpioWrite(_relayPins[idx], RELAY_OFF);
 
     if (markCompleted) {
         _states[idx] = ZoneState::COMPLETED;
@@ -133,6 +134,6 @@ void ZoneController::deactivateCurrentZone(bool markCompleted) {
 
 void ZoneController::setAllRelaysOff() {
     for (int i = 0; i < _numZones; i++) {
-        _hal.gpioWrite(_relayPins[i], HIGH);
+        _hal.gpioWrite(_relayPins[i], RELAY_OFF);
     }
 }

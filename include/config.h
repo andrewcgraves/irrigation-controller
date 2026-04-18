@@ -11,10 +11,12 @@ static const int MAX_WATERING_DURATION_MIN = 30;
 static const int DEFAULT_WATERING_DURATION_MIN = 10;
 
 // --- Relay Pins (active LOW) ---
-static const int PIN_RELAY_ZONE1 = 5;   // D2
-static const int PIN_RELAY_ZONE2 = 15;  // D4
-static const int PIN_RELAY_ZONE3 = 16;  // D5
-static const int PIN_RELAY_ZONE4 = 17;  // D6
+// NOTE: Board uses BOARD_HAS_PIN_REMAP. These are Arduino API pin numbers, NOT GPIO numbers.
+// Arduino pin 2 = D2 = GPIO 5, pin 4 = D4 = GPIO 7, pin 5 = D5 = GPIO 8, pin 6 = D6 = GPIO 9
+static const int PIN_RELAY_ZONE1 = 2;   // D2 (GPIO 5)
+static const int PIN_RELAY_ZONE2 = 4;   // D4 (GPIO 7)
+static const int PIN_RELAY_ZONE3 = 5;   // D5 (GPIO 8)
+static const int PIN_RELAY_ZONE4 = 6;   // D6 (GPIO 9)
 
 static const int ZONE_RELAY_PINS[NUM_ZONES] = {
     PIN_RELAY_ZONE1,
@@ -23,9 +25,10 @@ static const int ZONE_RELAY_PINS[NUM_ZONES] = {
     PIN_RELAY_ZONE4
 };
 
-// Relay logic: LOW = ON, HIGH = OFF
-static const int RELAY_ON  = 0;
-static const int RELAY_OFF = 1;
+// Relay logic: HIGH = ON, LOW = OFF
+// Active-HIGH: GPIO defaults LOW on boot, so relays stay off until explicitly activated.
+static const int RELAY_ON  = 1;
+static const int RELAY_OFF = 0;
 
 // --- SPI OLED (SSD1306 128x32) ---
 static const int PIN_OLED_MOSI = 9;
@@ -44,10 +47,12 @@ static const int PIN_ENCODER_DT  = 20;  // A3
 static const int PIN_ENCODER_SW  = 23;  // A6
 
 // --- Per-Zone LEDs ---
-static const int PIN_LED_ZONE1 = 24;  // A7
-static const int PIN_LED_ZONE2 = 44;  // D0
-static const int PIN_LED_ZONE3 = 43;  // D1
-static const int PIN_LED_ZONE4 = 18;  // D7
+// Arduino API pin numbers (BOARD_HAS_PIN_REMAP active):
+// pin 24 = A7 = GPIO 14, pin 0 = D0 = GPIO 44, pin 1 = D1 = GPIO 43, pin 7 = D7 = GPIO 10
+static const int PIN_LED_ZONE1 = 24;  // A7 (GPIO 14)
+static const int PIN_LED_ZONE2 = 0;   // D0 (GPIO 44)
+static const int PIN_LED_ZONE3 = 1;   // D1 (GPIO 43)
+static const int PIN_LED_ZONE4 = 7;   // D7 (GPIO 10)
 
 static const int ZONE_LED_PINS[NUM_ZONES] = {
     PIN_LED_ZONE1,

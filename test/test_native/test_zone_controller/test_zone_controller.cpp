@@ -30,10 +30,10 @@ void test_begin_sets_all_relays_off() {
     ZoneController z(h, c, testRelayPins, 4);
     z.begin();
 
-    TEST_ASSERT_EQUAL(HIGH, h.pinValue(5));
-    TEST_ASSERT_EQUAL(HIGH, h.pinValue(15));
-    TEST_ASSERT_EQUAL(HIGH, h.pinValue(16));
-    TEST_ASSERT_EQUAL(HIGH, h.pinValue(17));
+    TEST_ASSERT_EQUAL(LOW, h.pinValue(5));
+    TEST_ASSERT_EQUAL(LOW, h.pinValue(15));
+    TEST_ASSERT_EQUAL(LOW, h.pinValue(16));
+    TEST_ASSERT_EQUAL(LOW, h.pinValue(17));
 }
 
 void test_begin_sets_pin_modes_to_output() {
@@ -50,15 +50,15 @@ void test_begin_sets_pin_modes_to_output() {
 
 // --- startQueue() tests ---
 
-void test_start_single_zone_writes_low() {
+void test_start_single_zone_writes_high() {
     ZoneRunQueue q;
     q.add(1, 10);
     zc->startQueue(q);
 
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));   // Zone 1 ON
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(15));  // Zone 2 OFF
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(16));  // Zone 3 OFF
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(17));  // Zone 4 OFF
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));  // Zone 1 ON
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(15));  // Zone 2 OFF
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(16));  // Zone 3 OFF
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(17));  // Zone 4 OFF
 }
 
 void test_start_zone2_writes_correct_pin() {
@@ -66,8 +66,8 @@ void test_start_zone2_writes_correct_pin() {
     q.add(2, 10);
     zc->startQueue(q);
 
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));   // Zone 1 OFF
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(15));    // Zone 2 ON
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));    // Zone 1 OFF
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(15));  // Zone 2 ON
 }
 
 void test_active_zone_reports_correctly() {
@@ -94,14 +94,14 @@ void test_starting_new_queue_stops_current_zone() {
     ZoneRunQueue q1;
     q1.add(1, 10);
     zc->startQueue(q1);
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));
 
     ZoneRunQueue q2;
     q2.add(2, 10);
     zc->startQueue(q2);
 
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));  // Zone 1 stopped
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(15));   // Zone 2 started
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));    // Zone 1 stopped
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(15));  // Zone 2 started
 }
 
 // --- update() auto-advance tests ---
@@ -111,12 +111,12 @@ void test_zone_auto_stops_after_duration() {
     q.add(1, 1); // 1 minute
     zc->startQueue(q);
 
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));
 
     clk.advanceSeconds(60); // 1 minute passes
     zc->update();
 
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));
     TEST_ASSERT_FALSE(zc->isWatering());
 }
 
@@ -143,8 +143,8 @@ void test_queue_advances_to_next_zone() {
     zc->update();
 
     TEST_ASSERT_EQUAL(2, zc->activeZone());
-    TEST_ASSERT_EQUAL(LOW, hal.pinValue(15));
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));
+    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(15));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));
     TEST_ASSERT_EQUAL(ZoneState::COMPLETED, zc->zoneState(1));
     TEST_ASSERT_EQUAL(ZoneState::ACTIVE, zc->zoneState(2));
 }
@@ -187,10 +187,10 @@ void test_stop_all_turns_off_everything() {
 
     zc->stopAll();
 
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(5));
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(15));
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(16));
-    TEST_ASSERT_EQUAL(HIGH, hal.pinValue(17));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(5));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(15));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(16));
+    TEST_ASSERT_EQUAL(LOW, hal.pinValue(17));
     TEST_ASSERT_EQUAL(0, zc->activeZone());
     TEST_ASSERT_FALSE(zc->isWatering());
 }
@@ -286,7 +286,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_begin_sets_all_relays_off);
     RUN_TEST(test_begin_sets_pin_modes_to_output);
 
-    RUN_TEST(test_start_single_zone_writes_low);
+    RUN_TEST(test_start_single_zone_writes_high);
     RUN_TEST(test_start_zone2_writes_correct_pin);
     RUN_TEST(test_active_zone_reports_correctly);
     RUN_TEST(test_zone_state_is_active_when_watering);
