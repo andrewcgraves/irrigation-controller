@@ -32,6 +32,8 @@ struct CallbackLog {
     int publishZoneCount = 0;
     int saveSchedulesCount = 0;
     int lastWateringZone = 0;
+    int lastWateringElapsed = 0;
+    int lastWateringTotal = 0;
     bool lastZoneState = false;
 
     void reset() {
@@ -40,6 +42,7 @@ struct CallbackLog {
         publishOnCount = publishOffCount = publishZoneCount = 0;
         saveSchedulesCount = 0;
         lastWateringZone = 0;
+        lastWateringElapsed = lastWateringTotal = 0;
         lastZoneState = false;
     }
 };
@@ -50,7 +53,7 @@ class TestCallbacks : public IStateMachineCallbacks {
 public:
     void onShowHome(bool, bool) override { cbLog.showHomeCount++; }
     void onShowMenu(Screen, const MenuSystem&) override { cbLog.showMenuCount++; }
-    void onShowWatering(int z, int, int, int) override { cbLog.showWateringCount++; cbLog.lastWateringZone = z; }
+    void onShowWatering(int z, int elapsed, int total, int) override { cbLog.showWateringCount++; cbLog.lastWateringZone = z; cbLog.lastWateringElapsed = elapsed; cbLog.lastWateringTotal = total; }
     void onShowComplete() override { cbLog.showCompleteCount++; }
     void onDisplayWake() override { cbLog.displayWakeCount++; }
     void onDisplaySleep() override { cbLog.displaySleepCount++; }
@@ -307,6 +310,18 @@ void test_button_press_stops_watering() {
     TEST_ASSERT_FALSE(zoneCtrl->isWatering());
 }
 
+void test_watering_display_passes_total_not_remaining() {
+    MQTTCommand cmd = makeOnCmd(1, 2); // 2-minute zone
+    sm->update(InputEvent::None, &cmd);
+    cbLog.reset();
+
+    clk.advanceSeconds(30); // 30s elapsed, 90s remaining
+    noInput();
+
+    TEST_ASSERT_EQUAL(120, cbLog.lastWateringTotal);   // full duration, not remaining
+    TEST_ASSERT_EQUAL(30,  cbLog.lastWateringElapsed);
+}
+
 // ============================================================
 // Menu Actions
 // ============================================================
@@ -390,6 +405,7 @@ int main(int argc, char **argv) {
 
     // Manual / Emergency stop
     RUN_TEST(test_button_press_stops_watering);
+    RUN_TEST(test_watering_display_passes_total_not_remaining);
 
     // Menu actions
     RUN_TEST(test_save_schedule_triggers_callback);

@@ -317,5 +317,5 @@ void StateMachine::updateWateringDisplay() {
     int totalSec   = _zoneCtrl.activeDurationSeconds();
     int elapsedSec = totalSec - remainSec;
 
-    _cb->onShowWatering(activeZone, elapsedSec, remainSec, 0);
+    _cb->onShowWatering(activeZone, elapsedSec, totalSec, 0);
 }
