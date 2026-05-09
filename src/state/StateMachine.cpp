@@ -172,8 +172,18 @@ void StateMachine::update(InputEvent input, MQTTCommand* mqttCmd) {
     }
 
     case AppState::Watering: {
+        int prevZone = _zoneCtrl.activeZone();
+
         // Update zone controller
         _zoneCtrl.update();
+
+        // If the zone changed mid-queue, publish the transition
+        int newZone = _zoneCtrl.activeZone();
+        if (newZone != prevZone && _zoneCtrl.isWatering() && _cb) {
+            _cb->onPublishZoneState(prevZone, false);
+            _cb->onPublishZoneState(newZone, true);
+            _cb->onPublishWateringOn(newZone, _zoneCtrl.remainingSeconds());
+        }
 
         // Update display with progress
         updateWateringDisplay();

@@ -310,6 +310,24 @@ void test_button_press_stops_watering() {
     TEST_ASSERT_FALSE(zoneCtrl->isWatering());
 }
 
+void test_zone_transition_publishes_mqtt() {
+    MQTTCommand cmd;
+    cmd.type = MQTTCommandType::TurnOn;
+    cmd.queue.clear();
+    cmd.queue.add(1, 1); // zone 1 for 1 minute
+    cmd.queue.add(2, 1); // zone 2 for 1 minute
+    sm->update(InputEvent::None, &cmd);
+    cbLog.reset(); // clear start-of-watering events
+
+    clk.advanceSeconds(60); // zone 1 expires
+    noInput(); // triggers _zoneCtrl.update() inside state machine
+
+    TEST_ASSERT_EQUAL(2, zoneCtrl->activeZone());
+    TEST_ASSERT_EQUAL(1, cbLog.publishOnCount);    // onPublishWateringOn for zone 2
+    TEST_ASSERT_EQUAL(2, cbLog.lastWateringZone);  // zone 2
+    TEST_ASSERT_EQUAL(2, cbLog.publishZoneCount);  // zone 1 off + zone 2 on
+}
+
 void test_watering_display_passes_total_not_remaining() {
     MQTTCommand cmd = makeOnCmd(1, 2); // 2-minute zone
     sm->update(InputEvent::None, &cmd);
@@ -405,6 +423,7 @@ int main(int argc, char **argv) {
 
     // Manual / Emergency stop
     RUN_TEST(test_button_press_stops_watering);
+    RUN_TEST(test_zone_transition_publishes_mqtt);
     RUN_TEST(test_watering_display_passes_total_not_remaining);
 
     // Menu actions
